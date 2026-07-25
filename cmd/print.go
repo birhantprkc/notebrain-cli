@@ -20,6 +20,7 @@ const (
 	formatText   = "text"
 	formatJSON   = "json"
 	formatNDJSON = "ndjson"
+	formatTSV    = "tsv"
 )
 
 var getTerminalWidth = func() int {
@@ -82,7 +83,7 @@ func printResultsFormattedToWriter(w io.Writer, commandName string, headerQuery 
 	switch globals.Format {
 	case formatJSON:
 		printJSONResults(w, cmdName, queryStr, filtered, globals)
-	case "tsv":
+	case formatTSV:
 		printTSVResults(w, filtered)
 	default: // "text"
 		printTextResults(w, commandName, headerQuery, filtered, globals)

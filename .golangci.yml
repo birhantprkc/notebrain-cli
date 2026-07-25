@@ -19,8 +19,6 @@ linters:
     - unparam # flags unused function parameters
     - whitespace # flags unnecessary blank lines
   settings:
-    goconst:
-      ignore-tests: true
     errcheck:
       exclude-functions:
         - (*os.File).Close

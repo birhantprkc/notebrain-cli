@@ -425,8 +425,8 @@ func buildChunks(sections []section, noteSlug string, maxRunes, overlapRunes int
 			case "table":
 				hasTable = true
 				prose.WriteString(b.text)
-			case "task_list", "list":
-				if b.kind == "task_list" {
+			case blockKindTaskList, "list":
+				if b.kind == blockKindTaskList {
 					hasTask = true
 				}
 				prose.WriteString(b.text)

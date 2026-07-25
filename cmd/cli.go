@@ -158,7 +158,7 @@ func setupLogger(logFormat, logLevel string) {
 	isTTY := term.IsTerminal(os.Stderr.Fd()) && os.Getenv("TERM") != "dumb"
 	format := strings.ToLower(logFormat)
 
-	if format == "json" || (format == "auto" && !isTTY) {
+	if format == formatJSON || (format == "auto" && !isTTY) {
 		handler = slog.NewJSONHandler(os.Stderr, opts)
 	} else {
 		handler = slog.NewTextHandler(os.Stderr, opts)

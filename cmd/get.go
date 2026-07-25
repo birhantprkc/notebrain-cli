@@ -36,7 +36,7 @@ func (c *GetCmd) Run(globals *Globals) error {
 		enc.SetIndent("", "  ")
 		return enc.Encode(note)
 
-	case "tsv":
+	case formatTSV:
 		fmt.Println("note_slug\ttitle\tfile_path\ttags\tchunks\ttext")
 		tagsStr := formatTags(note.Tags)
 		fmt.Printf("%s\t%s\t%s\t%s\t%d\t%s\n",
