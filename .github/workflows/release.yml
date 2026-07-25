@@ -12,47 +12,31 @@ permissions:
   id-token: write
 
 jobs:
-  golangci:
-    name: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version: 1.26.4
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.11
+  lint:
+    uses: ./.github/workflows/lint.yml
 
   release:
-    needs: golangci
+    needs: lint
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version: 1.26.4
-
       - name: Install Cosign
         uses: sigstore/cosign-installer@v4.1.2
         with:
-          cosign-release: 'v2.6.0'
+          cosign-release: "v2.6.0"
       - name: Check install!
         run: cosign version
-
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@v0
-
       - name: Prepare dist directory
         run: mkdir -p dist
-
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
