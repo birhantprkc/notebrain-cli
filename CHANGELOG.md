@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.7.2] - 2026-07-25
+
+### Fixed
+- **Linter & Code Quality Warnings**: Resolved variable shadowing, unused parameters, redundant conversions, whitespace, and gosec linter warnings across `cmd`, `configfile`, `ingest`, `obsidian`, `parser`, and `store` packages (`fix`).
+- **golangci-lint Schema & Linter Compliance**: Resolved invalid `goconst.ignore-tests` property in `.golangci.yml` schema and replaced literal string occurrences (`"json"`, `"tsv"`, `"task_list"`) with package constants (`fix(ci)`).
+
+### Changed
+- **GitHub Actions Linting**: Extracted `golangci-lint` step into a reusable workflow (`lint.yml`) executing on all branches, upgraded to version `2.12.2`, and configured release job dependency (`ci`).
+- **Command Package String Constants**: Replaced repeated string format literals with package-level constants to improve code maintainability (`refactor(cmd)`).
+- **Import Grouping Formatting**: Standardized and reformatted import groupings across internal packages and `cmd` (`style`).
+- **Dependencies & Vendor Tree**: Upgraded transitive dependencies and refreshed the vendor tree (`build(deps)`).
+- **CI & Pre-Commit Configuration**: Configured `golangci-lint` with test exclusions and updated `lefthook` pre-commit hooks (`ci`).
+
 ## [v2.7.1] - 2026-07-23
 
 ### Fixed
