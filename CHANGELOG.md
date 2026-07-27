@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.9.0] - 2026-07-27
+
+### Added
+- **Unified Debug Flag (`--debug`)**: Added a single `--debug` CLI flag and `debug` TOML setting to toggle debug-level logging to stderr (`feat(cli)`).
+- **Inverted Tag Flag (`--show-tags`)**: Renamed `--hide-tags` to `--show-tags` (default `false`) for cleaner positive-boolean semantics in CLI output (`feat(cli)`).
+- **TOML Deprecated Key Migration**: Implemented automatic resolution of deprecated keys (such as `hide-tags` → `show-tags`) in `TOMLResolver` with non-fatal warning logs for full backward compatibility (`feat(config)`).
+
+### Changed
+- **Streamlined Configuration Template**: Reduced `config.example.toml` from 118 lines down to ~35 lines, exposing only core essential settings (`refactor(config)`).
+- **Exposed Real Ingest Defaults**: Ingestion flags `--min-chunk-words` (10), `--chunk-size` (800), and `--chunk-overlap` (100) now expose their actual numerical default values directly in `--help` output (`refactor(cli)`).
+- **Auto-Detected OCR for PDFs**: OCR via Tesseract is now automatically detected whenever `--enable-pdf` is active and `tesseract` is present in `$PATH`, removing the need for a separate `--enable-ocr` flag (`refactor(ingest)`).
+- **Hyperlinks via Environment Variable**: Removed `--no-hyperlinks` flag in favor of standard `$NO_HYPERLINKS` environment variable (`refactor(cli)`).
+
+### Removed
+- **Redundant CLI Flags**: Cleaned up 8 redundant CLI flags (`--split`, `--split-by`, `--verbose`, `--no-hyperlinks`, `--skip-attachments`, `--enable-ocr`, `--log-format`, `--log-level`) to simplify the CLI surface area (`refactor(cli)`).
+
 ## [v2.8.0] - 2026-07-27
 
 ### Added
