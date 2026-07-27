@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.8.0] - 2026-07-27
+
+### Added
+- **LLM-Based PDF Extraction**: Replaced the heuristic `pdf2md` parser with an LLM-powered extraction pipeline using OpenRouter and DeepSeek APIs to convert messy PDF text into perfectly formatted Markdown.
+- **LLM Model Flag**: Added `--llm-model` CLI flag to specify which model to use for PDF text parsing. Any model prefix not explicitly `deepseek-` is routed through OpenRouter by default.
+
+### Changed
+- **Graceful PDF Failures**: The ingest pipeline now logs a warning and gracefully skips a PDF if the extraction or LLM API fails, preventing it from crashing the entire vault ingestion process.
+- **API Key Sanitization**: Extraneous spaces or quotes are now automatically stripped from API keys loaded via environment variables to prevent HTTP 401 Unauthorized errors.
+
+### Removed
+- **Heuristic pdf2md Parser**: Completely removed the old `pdf2md` custom parsing logic as it produced noisy and poorly structured content.
+
 ## [v2.7.2] - 2026-07-25
 
 ### Fixed
