@@ -71,34 +71,35 @@ func NewPipeline(s *store.Store, e Embedder, workers int) *Pipeline {
 // them into the store with structured logging for progress.
 func (p *Pipeline) Run(ctx context.Context, vaultPath string, glob string, _ io.Reader, _ io.Writer) error {
 	if p.EnablePDF {
-		slog.Info("initializing PDF extractor backend")
-		pb, err := pdfextract.NewPDFiumBackend()
-		if err != nil {
-			return fmt.Errorf("failed to initialize PDF backend: %w", err)
-		}
-		p.pdfBackend = pb
-		defer pb.Close()
+		if p.LLMModel == "" {
+			slog.Warn("PDF ingestion requires an LLM model, but none was provided. Disabling PDF support. (hint: use --llm-model)")
+			p.EnablePDF = false
+		} else {
+			slog.Info("initializing PDF extractor backend")
+			pb, err := pdfextract.NewPDFiumBackend()
+			if err != nil {
+				return fmt.Errorf("failed to initialize PDF backend: %w", err)
+			}
+			p.pdfBackend = pb
+			defer pb.Close()
 
-		if p.LLMModel != "" {
 			converter, err := llmparse.New(p.LLMModel)
 			if err != nil {
 				return fmt.Errorf("LLM PDF parser: %w", err)
 			}
 			p.llmConverter = converter
 			slog.Info("LLM PDF parser enabled", "model", p.LLMModel, "backend", converter.Name())
-		} else {
-			return fmt.Errorf("--llm-model must be specified when --enable-pdf is used")
-		}
 
-		if p.EnableOCR {
-			ob := pdfextract.NewTesseractBackend("tesseract", "eng")
-			if !ob.Available() {
-				slog.Warn("OCR is enabled but tesseract is not available in PATH, skipping OCR")
-			} else if err := ob.ValidateLang(ctx); err != nil {
-				slog.Warn("OCR language validation failed, skipping OCR", "err", err)
-			} else {
-				p.ocrBackend = ob
-				slog.Info("initialized OCR backend (tesseract)")
+			if p.EnableOCR {
+				ob := pdfextract.NewTesseractBackend("tesseract", "eng")
+				if !ob.Available() {
+					slog.Warn("OCR is enabled but tesseract is not available in PATH, skipping OCR")
+				} else if err := ob.ValidateLang(ctx); err != nil {
+					slog.Warn("OCR language validation failed, skipping OCR", "err", err)
+				} else {
+					p.ocrBackend = ob
+					slog.Info("initialized OCR backend (tesseract)")
+				}
 			}
 		}
 	}
