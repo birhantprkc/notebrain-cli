@@ -41,15 +41,14 @@ notebrain stats --format=json
    - When scanning tabular lists without text content, use `--format tsv` to drop repeating JSON key names.
    - When outputting full JSON (i.e., not using `--jsonpath`), the `file_path` field is omitted by default to cut token footprint by ~40–50%. Pass `--show-file-path` only if strictly needed.
 
-5. **Intelligent Query Splitting**: When researching compound questions or orthogonal topics (e.g., comparing two technologies), split the query into distinct terms to activate multi-hit boosting:
-   - **Positional arguments** (when exact terms are known): `notebrain search "redis pubsub" "kafka brokers" --limit 5 --format json`
-   - **`--split` flag** (when splitting natural language by delimiters): `notebrain search "redis, kafka, rabbitmq" --split --limit 5 --format json`
+5. **Intelligent Query Splitting**: When researching compound questions or orthogonal topics (e.g., comparing two technologies), split the query into distinct positional arguments to activate multi-hit boosting:
+   - **Positional arguments**: `notebrain search "redis pubsub" "kafka brokers" --limit 5 --format json`
 
 6. **Avoid Blanket Chaining**: A single `search` with `--context-window 1 --include-text` answers most questions. Never blindly run `search → backlinks → connections → hidden` sequentially unless the user explicitly requests a comprehensive vault-wide audit of a topic. Pick the exact command tailored to the query.
 
 7. **Keep Result Sets Small**: Default `--limit` and `--top-k` to 3–5. Larger result sets rarely add useful signal — they flood context with diminishing-relevance matches and inflate token costs. Only increase beyond 5 when the user explicitly asks for more results or the task requires exhaustive coverage (e.g., "list all notes tagged X").
 
-8. **PDF Support**: By default, search results only return Markdown notes text. If the user explicitly asks to include PDF notes in their search results, append the `--with-pdf` flag to `search` or `boosted` commands.
+8. **PDF Support**: `search` and `boosted` commands include PDF text extraction results by default (`--with-pdf=true`). To exclude PDFs and restrict results strictly to Markdown notes, pass `--with-pdf=false`.
 
 ## Progressive Retrieval Workflow (`notebrain search`)
 

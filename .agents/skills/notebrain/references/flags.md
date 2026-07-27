@@ -8,17 +8,17 @@ These flags are available only on the commands listed.
 
 ### `search`
 
-| Flag                 | Purpose                                                                                                               | Default  |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------- | -------- |
-| `--limit N`          | Maximum total results to return.                                                                                      | `10`     |
-| `--top-k N`          | Maximum chunks to retain **per note**. Prevents one long note from dominating results.                                | `3`      |
-| `--split`            | Split query string by delimiters (comma, pipe, semicolon) for independent sub-searches with multi-hit score boosting. | off      |
-| `--split-by "CHARS"` | Delimiter characters for `--split`.                                                                                   | `",\|;"` |
-| `--section "PATH"`   | Filter results to chunks under a specific heading path (e.g., `"Architecture > Components"`).                         | —        |
-| `--tag "TagName"`    | Filter results to notes with this tag.                                                                                | —        |
-| `--has-tasks`        | Only return chunks containing task lists (checkboxes).                                                                | off      |
-| `--has-code`         | Only return chunks containing fenced code blocks.                                                                     | off      |
-| `--with-pdf`         | Include PDF text extraction results in the search. Defaults to false (Markdown-only).                                 | `false`  |
+| Flag               | Purpose                                                                                        | Default |
+| ------------------ | ---------------------------------------------------------------------------------------------- | ------- |
+| `--limit N`        | Maximum total results to return.                                                               | `10`    |
+| `--top-k N`        | Maximum chunks to retain **per note**. Prevents one long note from dominating results.         | `3`     |
+| `--section "PATH"` | Filter results to chunks under a specific heading path (e.g., `"Architecture > Components"`).  | —       |
+| `--tag "TagName"`  | Filter results to notes with this tag.                                                         | —       |
+| `--has-tasks`      | Only return chunks containing task lists (checkboxes).                                         | off     |
+| `--has-code`       | Only return chunks containing fenced code blocks.                                              | off     |
+| `--with-pdf`       | Include PDF text extraction results in the search.                                             | `true`  |
+
+> Note: To execute multi-query search with multi-hit boosting, pass multiple positional query arguments: `notebrain search "query1" "query2"`.
 
 ### `hidden`
 
@@ -50,24 +50,29 @@ These flags are available only on the commands listed.
 | `--seed STRING` | **Required.** Seed note (slug, title, or path) whose graph neighbors get a score boost. | —       |
 | `--limit N`     | Maximum number of results.                                                              | `10`    |
 | `--boost F`     | Score multiplier for graph-connected results (e.g., `1.5` = 50% boost over base score). | `1.5`   |
-| `--with-pdf`    | Include PDF text extraction results in the search. Defaults to false (Markdown-only).   | `false` |
+| `--with-pdf`    | Include PDF text extraction results in the search.                                      | `true`  |
 
 ### `ingest`
 
-| Flag             | Purpose                                                                                                 | Default |
-| ---------------- | ------------------------------------------------------------------------------------------------------- | ------- |
-| `--enable-pdf`   | Process and index PDF files found in the vault using native text extraction.                            | `false` |
-| `--enable-ocr`   | Automatically perform Tesseract OCR on scanned/image-based PDFs if text extraction fails.               | `false` |
-| `--tesseract-bin`| Path to the tesseract binary.                                                                           | `tesseract`|
-| `--ocr-langs`    | Language codes to pass to Tesseract (e.g., `eng+fra`).                                                  | `eng`   |
+| Flag                 | Purpose                                                                                 | Default |
+| -------------------- | --------------------------------------------------------------------------------------- | ------- |
+| `--workers N`        | Number of concurrent ingestion workers.                                                 | `4`     |
+| `--chunk-size N`     | Maximum runes per chunk fed to the parser.                                              | `800`   |
+| `--chunk-overlap N`  | Overlap runes between sub-chunks when a section is split.                               | `100`   |
+| `--min-chunk-words N`| Skip text chunks containing fewer than N words.                                         | `10`    |
+| `--respect-exclude`  | Respect Obsidian's `userIgnoreFilters` and `attachmentFolderPath` settings.              | `false` |
+| `--enable-pdf`       | Process and index PDF files in the vault using native text extraction (and auto-OCR).   | `false` |
+| `--llm-model MODEL`  | LLM model name for PDF markdown parsing (e.g., `openrouter/anthropic/claude-sonnet`).   | —       |
+
+> Note: OCR via Tesseract is auto-detected whenever `--enable-pdf` is true and `tesseract` is installed in `$PATH`. Attachment wikilinks are always automatically excluded from graph edges.
 
 ### `get`
 
 No command-specific flags. Takes a single positional argument: `<slug>` (note slug, title, or file path — auto-resolved).
 
-## Global Flags (Available on All Query Commands)
+## Global Flags (Available on Subcommands)
 
-These flags work identically on `search`, `backlinks`, `connections`, `hidden`, `tags`, `boosted`, `get`, and `stats`.
+These flags work on `search`, `backlinks`, `connections`, `hidden`, `tags`, `boosted`, `get`, `stats`, and `ingest`.
 
 ### Output Format & Extraction
 
@@ -78,24 +83,23 @@ These flags work identically on `search`, `backlinks`, `connections`, `hidden`, 
 | `--jsonpath PATH`  | Extract specific JSON elements using JSONPath (e.g., `"$.results[*].note_slug"`). Eliminates JSON envelope overhead entirely. | —       |
 | `--include-text`   | Include the matched markdown text chunk in results. Omit during initial structure-mapping to save tokens.                     | off     |
 
-### Search & Filtering
+### Search & Display Filtering
 
-| Flag                                                                                                                 | Purpose                                                                                                                      | Default |
-| -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `--context-window N`                                                                                                 | Fetch ±N adjacent chunks around each match into the `context` field. Use for lightweight surrounding context across results. | `0`     |
-| `--min-score F`                                                                                                      | Suppress results below this similarity score (0.0–1.0).                                                                      | `0`     |
-| `--hide-tags`                                                                                                        | Hide tag names (`#Tag/Subtag`) from output. Pass `--hide-tags=false` to show them.                                           | `true`  |
-| `--skip-attachments`                                                                                                 | Exclude attachment and image links (e.g., `.webp`, `.png`, `.canvas`) from graph edges and backlinks.                        | `true`  |
-| `--skip-phantom`                                                                                                     | Exclude uncreated notes (phantom wikilinks without a `.md` file on disk) from results.                                       | `true`  |
-| The vault must have been indexed at least once via `notebrain ingest` before any query commands will return results. |
+| Flag                 | Purpose                                                                                                                       | Default |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `--context-window N` | Fetch ±N adjacent chunks around each match into the `context` field. Use for lightweight surrounding context across results. | `0`     |
+| `--min-score F`      | Suppress results below this similarity score (0.0–1.0).                                                                      | `0`     |
+| `--show-tags`        | Include tag names (`#Tag/Subtag`) in CLI text and JSON outputs.                                                               | `false` |
+| `--skip-phantom`     | Exclude uncreated notes (phantom wikilinks without a `.md` file on disk) from results.                                       | `true`  |
 
-### Environment & Config
+### Environment & Diagnostics
 
-| Flag                  | Purpose                                              | Default                           |
-| --------------------- | ---------------------------------------------------- | --------------------------------- |
-| `--chroma-path PATH`  | Path to ChromaDB persistent storage directory.       | `~/.notebrain/chroma`             |
-| `--vault-path PATH`   | Path to the Obsidian vault directory.                | (from config)                     |
-| `--vault-name STRING` | Vault display name for Obsidian URI links.           | basename of `--vault-path`        |
-| `--config PATH`       | Path to config file.                                 | `~/.notebrain/config/config.toml` |
-| `--verbose`           | Show detailed output including all matched sections. | off                               |
-| `--no-hyperlinks`     | Disable clickable terminal hyperlinks in output.     | off                               |
+| Flag                  | Purpose                                        | Default                           |
+| --------------------- | ---------------------------------------------- | --------------------------------- |
+| `--chroma-path PATH`  | Path to ChromaDB persistent storage directory. | `~/.notebrain/chroma`             |
+| `--vault-path PATH`   | Path to the Obsidian vault directory.          | (from config)                     |
+| `--vault-name STRING` | Vault display name for Obsidian URI links.     | basename of `--vault-path`        |
+| `--config PATH`       | Path to config file.                           | `~/.notebrain/config/config.toml` |
+| `--debug`             | Enable debug-level logging to stderr.          | `false`                           |
+
+> Hyperlink suppression: To disable OSC 8 terminal hyperlinks, set environment variable `NO_HYPERLINKS=1`.

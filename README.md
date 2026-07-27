@@ -167,9 +167,9 @@ vault-path = "/path/to/Second-Brain"
 vault-name = "Second-Brain"
 format     = "text"              # "text", "json", "tsv"
 
-skip-attachments = true          # ignore image/file links in graph
-skip-phantom     = true          # exclude uncreated "phantom" notes
-respect-exclude  = false         # honor Obsidian's ignore rules
+debug           = false         # enable debug logging to stderr
+respect-exclude = false         # honor Obsidian's ignore rules
+show-tags       = false         # include tag names in output
 ```
 
 ### Data Location

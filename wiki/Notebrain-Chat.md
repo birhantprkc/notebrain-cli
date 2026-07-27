@@ -113,12 +113,11 @@ rather than switching to filesystem search.
 
 ## Split independent topics
 
-For unrelated or compound concepts, split into distinct terms using either:
+For unrelated or compound concepts, split into distinct positional arguments:
 
-- **Positional arguments** (when exact terms are known):
-  `notebrain search "redis pubsub" "kafka brokers" --limit 5 --format json --include-text`
+- `notebrain search "redis pubsub" "kafka brokers" --limit 5 --format json --include-text`
 
-Both activate multi-hit boosting, ranking bridging notes above single-topic matches. Keep single-topic searches intact.
+This activates multi-hit boosting, ranking bridging notes above single-topic matches. Keep single-topic searches intact.
 
 ---
 

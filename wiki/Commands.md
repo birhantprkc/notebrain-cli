@@ -24,18 +24,17 @@ These flags can be applied to `notebrain` before any subcommand (e.g., `notebrai
 | `--chroma-path`     | `string`  | `~/.notebrain/chroma`             | Path to ChromaDB persistent storage. Can also be set via the `$CHROMA_PATH` environment variable.            |
 | `--vault-path`      | `string`  | _(None)_                          | **Required.** Absolute path to your Obsidian vault.                                                          |
 | `--vault-name`      | `string`  | _(Basename of vault)_             | Obsidian vault name (used for generating `obsidian://` URI links).                                           |
-| `--verbose`         | `boolean` | `false`                           | Enable verbose debug logging output.                                                                         |
-| `--no-hyperlinks`   | `boolean` | `false`                           | Disable OSC 8 terminal hyperlinks in output. Can also be set via `$NO_HYPERLINKS`.                           |
+| `--debug`           | `boolean` | `false`                           | Enable debug-level logging output to stderr.                                                                 |
 | `--format`          | `string`  | `text`                            | Output format: `text` (standard text), `json` (pretty structured JSON), or `tsv` (Tab-Separated Values).     |
 | `--jsonpath`        | `string`  | _(None)_                          | JSONPath expression to extract and filter specific fields from JSON output (e.g., `$.results[0].note_slug`). |
 | `--include-text`    | `boolean` | `false`                           | Include matched chunk text inside structured outputs (JSON, TSV).                                            |
 | `--context-window`  | `integer` | `0`                               | Fetch ±N adjacent chunks around each match for additional semantic context.                                  |
 | `--min-score`       | `float`   | `0.0`                             | Suppress search results below this similarity score (0.0 to 1.0).                                            |
 | `--respect-exclude` | `boolean` | `false`                           | Respect Obsidian user ignore filters and attachment folder exclusions during ingestion.                      |
-| `--log-format`      | `string`  | `auto`                            | Log format: `auto` (detects TTY), `json`, or `text`.                                                         |
-| `--log-level`       | `string`  | `info`                            | Minimum log severity to show: `info`, `debug`, `warn`, or `error`.                                           |
-| `--hide-tags`       | `boolean` | `true`                            | Hide tag names (`#Tag/Subtag`) in search and graph outputs.                                                  |
+| `--show-tags`       | `boolean` | `false`                           | Include tag names (`#Tag/Subtag`) in search and graph outputs.                                               |
 | `--show-file-path`  | `boolean` | `true`                            | Include `file_path` in outputs (`--show-file-path=false` to omit).                                           |
+
+> **Note on Hyperlinks**: Clickable OSC 8 terminal links are enabled automatically on supported terminal emulators (Ghostty, WezTerm, Kitty, iTerm2, etc.). To disable hyperlinks across all commands, set environment variable `NO_HYPERLINKS=1`.
 
 ### Token Efficiency & Quiet Mode for AI Agents
 
@@ -96,15 +95,16 @@ notebrain ingest [<glob>] [flags]
 
 #### Command-Specific Flags
 
-| Flag                | Type      | Default | Description                                                                         |
-| :------------------ | :-------- | :------ | :---------------------------------------------------------------------------------- |
-| `--workers`         | `integer` | `4`     | Number of concurrent ingestion workers.                                             |
-| `--min-chunk-words` | `integer` | `0`     | Skip chunks with fewer words than this (0 defaults to 10 words).                    |
-| `--chunk-size`      | `integer` | `0`     | Maximum runes per chunk for the parser (0 defaults to 800 runes).                   |
-| `--chunk-overlap`   | `integer` | `0`     | Overlap runes between sub-chunks when a section is split (0 defaults to 100 runes). |
-| `--enable-pdf`      | `boolean` | `false` | Enable PDF text extraction. Requires `--llm-model`.                                 |
-| `--enable-ocr`      | `boolean` | `false` | Enable OCR for scanned PDFs using Tesseract (requires `--enable-pdf`).              |
+| Flag                | Type      | Default | Description                                                                             |
+| :------------------ | :-------- | :------ | :-------------------------------------------------------------------------------------- |
+| `--workers`         | `integer` | `4`     | Number of concurrent ingestion workers.                                                 |
+| `--min-chunk-words` | `integer` | `10`    | Skip chunks with fewer words than this.                                                 |
+| `--chunk-size`      | `integer` | `800`   | Maximum runes per chunk for the parser.                                                 |
+| `--chunk-overlap`   | `integer` | `100`   | Overlap runes between sub-chunks when a section is split.                               |
+| `--enable-pdf`      | `boolean` | `false` | Enable PDF text extraction (and auto-OCR). Requires `--llm-model`.                      |
 | `--llm-model`       | `string`  | `""`    | LLM model to use for PDF parsing (e.g., `openrouter/inclusionai/ling-3.0-flash:free`). |
+
+> Note: OCR via Tesseract is auto-detected whenever `--enable-pdf` is active and `tesseract` is present in `$PATH`. Attachment links are automatically excluded from graph edges during indexing.
 
 #### Examples
 
@@ -133,21 +133,19 @@ notebrain search [<query>] [flags]
 
 #### Arguments
 
-- `[<query>]` _(optional)_: The semantic query string. (Can be omitted if `--tag` is specified).
+- `[<query>]` _(optional)_: The semantic query string. Multiple query strings can be passed as positional arguments for multi-hit boosting. (Can be omitted if `--tag` is specified).
 
 #### Command-Specific Flags
 
-| Flag            | Type      | Default  | Description                                                                                    |
-| :-------------- | :-------- | :------- | :--------------------------------------------------------------------------------------------- |
-| `--limit`       | `integer` | `10`     | Maximum number of results to return.                                                           |
-| `--top-k`       | `integer` | `3`      | Maximum number of chunks to return per note.                                                   |
-| `--section`     | `string`  | _(None)_ | Filter results by heading path.                                                                |
-| `--tag`         | `string`  | _(None)_ | Filter results by tag name (prefixed `#` is optional).                                         |
-| `--has-tasks`   | `boolean` | `false`  | Only return chunks containing markdown task lists (`- [ ]`).                                   |
-| `--has-code`    | `boolean` | `false`  | Only return chunks containing code blocks.                                                     |
-| `--with-pdf`    | `boolean` | `false`  | Include PDF results in the search (default is markdown only).                                  |
-| `--split`       | `boolean` | `false`  | Split query string by delimiters (comma, pipe, semicolon) or execute multi-positional queries. |
-| `--split-by`    | `string`  | `,       | ;`                                                                                             | Delimiters used to split query strings when `--split` is active. |
+| Flag          | Type      | Default  | Description                                                 |
+| :------------ | :-------- | :------- | :---------------------------------------------------------- |
+| `--limit`     | `integer` | `10`     | Maximum number of results to return.                        |
+| `--top-k`     | `integer` | `3`      | Maximum number of chunks to return per note.                |
+| `--section`   | `string`  | _(None)_ | Filter results by heading path.                             |
+| `--tag`       | `string`  | _(None)_ | Filter results by tag name (prefixed `#` is optional).      |
+| `--has-tasks` | `boolean` | `false`  | Only return chunks containing markdown task lists (`- [ ]`).|
+| `--has-code`  | `boolean` | `false`  | Only return chunks containing code blocks.                  |
+| `--with-pdf`  | `boolean` | `true`   | Include PDF results in search (`--with-pdf=false` to omit). |
 
 #### Examples
 
@@ -158,19 +156,16 @@ notebrain search "reconciliation loop in kubernetes" --limit 5
 # Search specifically for tasks under the Kubernetes tag
 notebrain search "deploy service" --tag "Kubernetes" --has-tasks
 
-# Multi-query search (positional arguments)
+# Multi-query search with multi-hit boosting (positional arguments)
 notebrain search "message brokers" "redis queue"
 
-# Multi-query search using delimiter splitting
-notebrain search "redis, streams, pubsub" --split
-
-# Multi-query search with tags hidden in output
-notebrain search "redis, streams" --split --hide-tags
+# Search showing tags in output
+notebrain search "redis streams" --show-tags
 ```
 
 #### How Multi-Query Matching & Ranking Works
 
-When multiple queries are provided (either via multiple positional arguments or via `--split`):
+When multiple query positional arguments are provided (`notebrain search "arg1" "arg2"`):
 
 1. **Semantic Vector Matching**: NoteBrain embeds each query independently into a 384-dimensional vector using `MiniLM-L6-v2`. Matching is based **100% on semantic vector similarity** (cosine distance in ChromaDB), not exact keyword or substring matching. A note can match a query even if it uses completely different terminology or synonyms.
 2. **Multi-Hit Boosting**: When a note chunk is semantically relevant to multiple queries in your search, NoteBrain boosts its rank! Results are sorted using a two-tier strategy:
@@ -445,9 +440,8 @@ vault-path = "/home/user/Obsidian/MainVault"
 vault-name = "MainVault"
 chroma-path = "~/.notebrain/chroma"
 format = "json"
-verbose = true
-context-window = 1
-skip-attachments = true
+debug = true
+show-tags = false
 ```
 
 ---
