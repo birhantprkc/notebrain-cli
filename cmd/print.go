@@ -277,7 +277,7 @@ func printTextResults(w io.Writer, commandName, query string, filtered []store.R
 	_, _ = fmt.Fprintln(w)
 }
 
-func printDeepDetails(w io.Writer, r store.Result, termWidth int, globals *Globals) {
+func printDeepDetails(w io.Writer, r store.Result, termWidth int, _ *Globals) {
 	var details []string
 	if len(r.MatchedQueries) > 0 {
 		details = append(details, fmt.Sprintf("Matched target sections (%d): %s", len(r.MatchedQueries), extraStyle.Render(`"`+strings.Join(r.MatchedQueries, `", "`)+`"`)))

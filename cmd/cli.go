@@ -163,7 +163,7 @@ func setupLogger(debug bool) {
 
 // hyperlinkSupported returns true if the terminal supports OSC 8 hyperlinks
 // and the user has not disabled them.
-func hyperlinkSupported(globals *Globals) bool {
+func hyperlinkSupported(_ *Globals) bool {
 	if os.Getenv("NO_HYPERLINKS") != "" {
 		return false
 	}
