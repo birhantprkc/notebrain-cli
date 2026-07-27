@@ -145,7 +145,7 @@ notebrain search [<query>] [flags]
 | `--tag`       | `string`  | _(None)_ | Filter results by tag name (prefixed `#` is optional).      |
 | `--has-tasks` | `boolean` | `false`  | Only return chunks containing markdown task lists (`- [ ]`).|
 | `--has-code`  | `boolean` | `false`  | Only return chunks containing code blocks.                  |
-| `--with-pdf`  | `boolean` | `true`   | Include PDF results in search (`--with-pdf=false` to omit). |
+| `--with-pdf`  | `boolean` | `false`  | Include PDF results in search (default is Markdown-only). |
 
 #### Examples
 

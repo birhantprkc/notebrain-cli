@@ -42,7 +42,7 @@ type SearchCmd struct {
 	Tag         string   `help:"filter results to notes with this tag"`
 	HasTasks    bool     `help:"only return chunks containing task lists (checkboxes)"`
 	HasCode     bool     `help:"only return chunks containing fenced code blocks"`
-	WithPDF     bool     `help:"include PDF results in search" default:"true"`
+	WithPDF     bool     `help:"include PDF results in search"`
 }
 
 func resolveQueries(queries []string) []string {

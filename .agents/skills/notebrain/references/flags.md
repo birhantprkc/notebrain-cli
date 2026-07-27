@@ -16,7 +16,7 @@ These flags are available only on the commands listed.
 | `--tag "TagName"`  | Filter results to notes with this tag.                                                         | —       |
 | `--has-tasks`      | Only return chunks containing task lists (checkboxes).                                         | off     |
 | `--has-code`       | Only return chunks containing fenced code blocks.                                              | off     |
-| `--with-pdf`       | Include PDF text extraction results in the search.                                             | `true`  |
+| `--with-pdf`       | Include PDF text extraction results in the search. Defaults to false (Markdown-only).        | `false` |
 
 > Note: To execute multi-query search with multi-hit boosting, pass multiple positional query arguments: `notebrain search "query1" "query2"`.
 
@@ -50,7 +50,7 @@ These flags are available only on the commands listed.
 | `--seed STRING` | **Required.** Seed note (slug, title, or path) whose graph neighbors get a score boost. | —       |
 | `--limit N`     | Maximum number of results.                                                              | `10`    |
 | `--boost F`     | Score multiplier for graph-connected results (e.g., `1.5` = 50% boost over base score). | `1.5`   |
-| `--with-pdf`    | Include PDF text extraction results in the search.                                      | `true`  |
+| `--with-pdf`    | Include PDF text extraction results in the search. Defaults to false (Markdown-only).   | `false` |
 
 ### `ingest`
 
