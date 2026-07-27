@@ -23,20 +23,16 @@ type ChunkDisplayFlags struct {
 
 // Globals holds shared configuration available to all subcommands.
 type Globals struct {
-	ChromaPath      string           `help:"path to ChromaDB persistent storage directory" default:"~/.notebrain/chroma"`
-	VaultPath       string           `name:"vault-path" help:"path to the Obsidian vault directory"`
-	VaultName       string           `name:"vault-name" help:"vault display name for Obsidian URI links (defaults to basename of --vault-path)"`
-	Verbose         bool             `help:"show detailed output including all matched sections"`
-	NoHyperlinks    bool             `help:"disable clickable terminal hyperlinks in output"`
-	Format          string           `help:"output format: text, json, or tsv" enum:"text,json,tsv" default:"text"`
-	JSONPath        string           `name:"jsonpath" help:"extract fields using JSONPath (e.g. '$.results[*].note_slug')"`
-	LogFormat       string           `name:"log-format" help:"log output format (auto, json, text)" default:"auto"`
-	LogLevel        string           `name:"log-level" help:"minimum log severity (info, debug, warn, error)" default:"info"`
-	SkipAttachments bool             `name:"skip-attachments" help:"exclude image/attachment links from graph edges" default:"true"`
-	SkipPhantom     bool             `name:"skip-phantom" help:"exclude phantom (uncreated) notes from results" default:"true"`
-	HideTags        bool             `name:"hide-tags" help:"hide tag names from output (use --hide-tags=false to show)" default:"true"`
-	ShowFilePath    bool             `name:"show-file-path" help:"include file_path in output (use --show-file-path=false to hide)" default:"true"`
-	Version         kong.VersionFlag `name:"version" help:"show version information"`
+	ChromaPath   string           `help:"path to ChromaDB persistent storage directory" default:"~/.notebrain/chroma"`
+	VaultPath    string           `name:"vault-path" help:"path to the Obsidian vault directory"`
+	VaultName    string           `name:"vault-name" help:"vault display name for Obsidian URI links (defaults to basename of --vault-path)"`
+	Format       string           `help:"output format: text, json, or tsv" enum:"text,json,tsv" default:"text"`
+	JSONPath     string           `name:"jsonpath" help:"extract fields using JSONPath (e.g. '$.results[*].note_slug')"`
+	Debug        bool             `help:"enable debug logging (sets log level to debug)" default:"false"`
+	SkipPhantom  bool             `name:"skip-phantom" help:"exclude phantom (uncreated) notes from results" default:"true"`
+	ShowTags     bool             `name:"show-tags" help:"include tag names (#tag) in output" default:"false"`
+	ShowFilePath bool             `name:"show-file-path" help:"include file_path in output (use --show-file-path=false to hide)" default:"true"`
+	Version      kong.VersionFlag `name:"version" help:"show version information"`
 
 	// Internal fields, not exposed as flags
 	Ctx           context.Context `kong:"-"`
@@ -118,7 +114,7 @@ Examples:
 		kong.Vars{"version": versionStr},
 	)
 
-	setupLogger(cli.LogFormat, cli.LogLevel)
+	setupLogger(cli.Debug)
 
 	// Resolve vault display name for Obsidian URI generation.
 	// Priority: --vault-name flag / config > basename(vault-path)
@@ -145,26 +141,18 @@ Examples:
 	return nil
 }
 
-func setupLogger(logFormat, logLevel string) {
-	var level slog.Level
-	switch strings.ToLower(logLevel) {
-	case "debug":
+func setupLogger(debug bool) {
+	level := slog.LevelInfo
+	if debug {
 		level = slog.LevelDebug
-	case "warn", "warning":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
-	default: // "info"
-		level = slog.LevelInfo
 	}
 
 	opts := &slog.HandlerOptions{Level: level}
 	var handler slog.Handler
 
 	isTTY := term.IsTerminal(os.Stderr.Fd()) && os.Getenv("TERM") != "dumb"
-	format := strings.ToLower(logFormat)
 
-	if format == formatJSON || (format == "auto" && !isTTY) {
+	if !isTTY {
 		handler = slog.NewJSONHandler(os.Stderr, opts)
 	} else {
 		handler = slog.NewTextHandler(os.Stderr, opts)
@@ -176,7 +164,7 @@ func setupLogger(logFormat, logLevel string) {
 // hyperlinkSupported returns true if the terminal supports OSC 8 hyperlinks
 // and the user has not disabled them.
 func hyperlinkSupported(globals *Globals) bool {
-	if globals.NoHyperlinks || os.Getenv("NO_HYPERLINKS") != "" {
+	if os.Getenv("NO_HYPERLINKS") != "" {
 		return false
 	}
 	return isHyperlinkSupportedEnv()

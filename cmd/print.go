@@ -106,7 +106,7 @@ func filterResults(results []store.Result, globals *Globals, displayFlags *Chunk
 		if globals.SkipPhantom && r.IsPhantom {
 			continue
 		}
-		if globals.HideTags {
+		if !globals.ShowTags {
 			r.Tags = nil
 		}
 		if !globals.ShowFilePath {
@@ -280,13 +280,7 @@ func printTextResults(w io.Writer, commandName, query string, filtered []store.R
 func printDeepDetails(w io.Writer, r store.Result, termWidth int, globals *Globals) {
 	var details []string
 	if len(r.MatchedQueries) > 0 {
-		if globals.Verbose || len(r.MatchedQueries) <= 3 {
-			details = append(details, fmt.Sprintf("Matched target sections (%d): %s", len(r.MatchedQueries), extraStyle.Render(`"`+strings.Join(r.MatchedQueries, `", "`)+`"`)))
-		} else {
-			topQueries := r.MatchedQueries[:3]
-			moreCount := len(r.MatchedQueries) - 3
-			details = append(details, fmt.Sprintf("Matched target sections (%d): %s (+%d more)", len(r.MatchedQueries), extraStyle.Render(`"`+strings.Join(topQueries, `", "`)+`"`), moreCount))
-		}
+		details = append(details, fmt.Sprintf("Matched target sections (%d): %s", len(r.MatchedQueries), extraStyle.Render(`"`+strings.Join(r.MatchedQueries, `", "`)+`"`)))
 	}
 	if len(r.Tags) > 0 {
 		formattedTags := make([]string, 0, len(r.Tags))
@@ -306,7 +300,7 @@ func printDeepDetails(w io.Writer, r store.Result, termWidth int, globals *Globa
 			prefix = "   └─ "
 		}
 		dLine := prefix + d
-		if !globals.Verbose && ansi.StringWidth(dLine) > maxLineLen {
+		if ansi.StringWidth(dLine) > maxLineLen {
 			dLine = ansi.Truncate(dLine, maxLineLen, "…")
 		}
 		_, _ = fmt.Fprintln(w, dLine)

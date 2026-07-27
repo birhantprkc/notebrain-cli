@@ -1037,7 +1037,7 @@ func TestMultiSemanticSearch_EmptyAndEdgeCases(t *testing.T) {
 
 func TestStoreOpen_WithSkipAttachments(t *testing.T) {
 	ctx := context.Background()
-	st, err := store.Open(ctx, t.TempDir(), store.WithSkipAttachments(true))
+	st, err := store.Open(ctx, t.TempDir())
 	if err != nil {
 		t.Fatalf("Open failed: %v", err)
 	}

@@ -86,15 +86,13 @@ bool_field = false
 }
 
 type CoreGlobals struct {
-	ChromaPath      string  `help:"path to ChromaDB persistent storage" default:"~/.notebrain/chroma"`
-	VaultPath       string  `name:"vault-path" help:"Obsidian vault path"`
-	ContextWindow   int     `name:"context-window" default:"0"`
-	MinScore        float64 `default:"0"`
-	LogFormat       string  `name:"log-format" default:"auto"`
-	LogLevel        string  `name:"log-level" default:"info"`
-	SkipAttachments bool    `name:"skip-attachments" default:"true"`
-	SkipPhantom     bool    `name:"skip-phantom" default:"true"`
-	HideTags        bool    `name:"hide-tags" default:"true"`
+	ChromaPath    string  `help:"path to ChromaDB persistent storage" default:"~/.notebrain/chroma"`
+	VaultPath     string  `name:"vault-path" help:"Obsidian vault path"`
+	ContextWindow int     `name:"context-window" default:"0"`
+	MinScore      float64 `default:"0"`
+	Debug         bool    `name:"debug" default:"false"`
+	SkipPhantom   bool    `name:"skip-phantom" default:"true"`
+	ShowTags      bool    `name:"show-tags" default:"false"`
 }
 
 func TestTOMLResolver_StrictNoHTTP(t *testing.T) {
@@ -103,8 +101,7 @@ chroma-path = "/tmp/custom-chroma"
 vault_path = "/tmp/my-vault"
 context_window = 2
 min_score = 0.75
-log_format = "json"
-log-level = "debug"
+debug = true
 `)
 
 	resolver, err := TOMLResolver(bytes.NewReader(tomlData))
@@ -135,17 +132,13 @@ log-level = "debug"
 	if cli.MinScore != 0.75 {
 		t.Errorf("Expected MinScore 0.75, got %f", cli.MinScore)
 	}
-	if cli.LogFormat != "json" {
-		t.Errorf("Expected LogFormat 'json', got %q", cli.LogFormat)
-	}
-	if cli.LogLevel != "debug" {
-		t.Errorf("Expected LogLevel 'debug', got %q", cli.LogLevel)
+	if cli.Debug != true {
+		t.Errorf("Expected Debug true, got %v", cli.Debug)
 	}
 }
 
 func TestTOMLResolver_SkipFlags(t *testing.T) {
 	tomlData := []byte(`
-skip-attachments = false
 skip_phantom = false
 `)
 
@@ -165,9 +158,6 @@ skip_phantom = false
 		t.Fatalf("parser.Parse failed: %v", err)
 	}
 
-	if cli.SkipAttachments != false {
-		t.Errorf("Expected SkipAttachments false, got %v", cli.SkipAttachments)
-	}
 	if cli.SkipPhantom != false {
 		t.Errorf("Expected SkipPhantom false, got %v", cli.SkipPhantom)
 	}
@@ -208,7 +198,7 @@ limit = 5
 	}
 }
 
-func TestTOMLResolver_HideTags(t *testing.T) {
+func TestTOMLResolver_DeprecatedHideTags(t *testing.T) {
 	tomlData := []byte(`
 hide-tags = false
 `)
@@ -229,7 +219,7 @@ hide-tags = false
 		t.Fatalf("parser.Parse failed: %v", err)
 	}
 
-	if cli.HideTags != false {
-		t.Errorf("Expected HideTags false when overridden in TOML, got %v", cli.HideTags)
+	if cli.ShowTags != true {
+		t.Errorf("Expected ShowTags true when hide-tags=false is in TOML, got %v", cli.ShowTags)
 	}
 }

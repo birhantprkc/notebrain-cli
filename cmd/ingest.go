@@ -33,12 +33,11 @@ import (
 type IngestCmd struct {
 	Glob           string `arg:"" optional:"" help:"glob pattern to filter files (default: all .md files)"`
 	Workers        int    `help:"number of concurrent ingestion workers" default:"4"`
-	MinChunkWords  int    `name:"min-chunk-words" help:"skip chunks with fewer words (0=default of 10)" default:"0"`
-	ChunkSize      int    `name:"chunk-size" help:"max runes per chunk (0=default of 800)" default:"0"`
-	ChunkOverlap   int    `name:"chunk-overlap" help:"overlap runes between sub-chunks (0=default of 100)" default:"0"`
+	MinChunkWords  int    `name:"min-chunk-words" help:"skip chunks with fewer words" default:"10"`
+	ChunkSize      int    `name:"chunk-size" help:"max runes per chunk" default:"800"`
+	ChunkOverlap   int    `name:"chunk-overlap" help:"overlap runes between sub-chunks" default:"100"`
 	RespectExclude bool   `help:"respect Obsidian userIgnoreFilters and attachmentFolderPath settings during ingest" default:"false"`
 	EnablePDF      bool   `help:"enable indexing of PDF attachments" default:"false"`
-	EnableOCR      bool   `help:"enable OCR for scanned PDFs (requires tesseract)" default:"false"`
 	LLMModel       string `name:"llm-model" help:"LLM model to use for PDF parsing (e.g. openrouter/anthropic/claude-sonnet, deepseek-chat). Requires API key in env." default:""`
 }
 
@@ -72,19 +71,10 @@ func (c *IngestCmd) Run(globals *Globals) error {
 	pipeline := ingest.NewPipeline(st, emb, workers)
 
 	pipeline.RespectExclude = c.RespectExclude
-	pipeline.SkipAttachments = globals.SkipAttachments
 	pipeline.EnablePDF = c.EnablePDF
-	pipeline.EnableOCR = c.EnableOCR
 	pipeline.LLMModel = c.LLMModel
-	// Allow flag/config overrides; 0 means "use the pipeline's built-in default".
-	if c.MinChunkWords > 0 {
-		pipeline.MinChunkWords = c.MinChunkWords
-	}
-	if c.ChunkSize > 0 {
-		pipeline.ChunkSize = c.ChunkSize
-	}
-	if c.ChunkOverlap > 0 {
-		pipeline.ChunkOverlap = c.ChunkOverlap
-	}
+	pipeline.MinChunkWords = c.MinChunkWords
+	pipeline.ChunkSize = c.ChunkSize
+	pipeline.ChunkOverlap = c.ChunkOverlap
 	return pipeline.Run(ctx, vaultPath, glob, os.Stdin, os.Stdout)
 }

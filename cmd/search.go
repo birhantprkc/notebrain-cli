@@ -36,36 +36,22 @@ import (
 type SearchCmd struct {
 	ChunkDisplayFlags
 	Queries     []string `arg:"" optional:"" name:"query" help:"search query (multiple args for multi-hit boosting)"`
-	Split       bool     `help:"split query by delimiters for independent sub-searches with multi-hit boosting"`
-	SplitBy     string   `name:"split-by" help:"delimiter characters for --split" default:",|;"`
 	Limit       int      `help:"maximum number of results" default:"10"`
 	TopKPerNote int      `name:"top-k" help:"maximum chunks to retain per note (prevents one note dominating)" default:"3"`
 	Section     string   `help:"filter results to chunks under this heading path (e.g. 'Architecture > Components')"`
 	Tag         string   `help:"filter results to notes with this tag"`
 	HasTasks    bool     `help:"only return chunks containing task lists (checkboxes)"`
 	HasCode     bool     `help:"only return chunks containing fenced code blocks"`
-	WithPDF     bool     `help:"include PDF results in search"`
+	WithPDF     bool     `help:"include PDF results in search" default:"true"`
 }
 
-func resolveQueries(queries []string, split bool, splitBy string) []string {
+func resolveQueries(queries []string) []string {
 	if len(queries) == 0 {
 		return nil
 	}
-	var rawList []string
-	if split {
-		f := func(c rune) bool {
-			return strings.ContainsRune(splitBy, c)
-		}
-		for _, q := range queries {
-			rawList = append(rawList, strings.FieldsFunc(q, f)...)
-		}
-	} else {
-		rawList = queries
-	}
-
 	seen := make(map[string]struct{})
 	out := []string{}
-	for _, q := range rawList {
+	for _, q := range queries {
 		cleaned := strings.TrimSpace(q)
 		if cleaned == "" {
 			continue
@@ -82,7 +68,7 @@ func (c *SearchCmd) Run(globals *Globals) error {
 	if c.TopKPerNote >= 4 {
 		fmt.Fprintf(os.Stderr, "warning: --top-k >= 4 may exceed upstream ChromaDB embedded 1 MiB FFI limit on large notes\n")
 	}
-	resolved := resolveQueries(c.Queries, c.Split, c.SplitBy)
+	resolved := resolveQueries(c.Queries)
 	if len(resolved) == 0 && c.Tag == "" {
 		return fmt.Errorf("query or --tag is required")
 	}

@@ -7,50 +7,25 @@
 # Note: Command line flags always override values specified in this file.
 
 # ------------------------------------------------------------------------------
-# Global Settings
+# Core Settings
 # ------------------------------------------------------------------------------
 
 # Path to the local directory where ChromaDB stores its data.
 # Defaults to "~/.notebrain/chroma"
-chroma-path = "~/.notebrain/chroma"
+# chroma-path = "~/.notebrain/chroma"
 
 # Absolute path to your Obsidian vault on disk.
 # If set here, you don't need to specify --vault-path on every 'ingest' execution.
 # vault-path = "/home/user/Documents/Obsidian Vault"
 
-# Enable verbose debug logs to stderr.
-# Defaults to false
-verbose = false
-
-# Disable OSC 8 terminal hyperlinks in output.
-# Useful if your terminal emulator does not support clickable link rendering.
-# Defaults to false
-no-hyperlinks = false
-
 # Default CLI output formatting option.
 # Options: "text" (human-readable), "json" (structured API), "tsv" (tabular)
 # Defaults to "text"
-format = "text"
+# format = "text"
 
-# Include full matched note chunk text in structured JSON or TSV outputs.
+# Enable debug logging to stderr.
 # Defaults to false
-include-text = false
-
-# Suppress similarity search results below this similarity threshold.
-# Must be a floating-point value between 0.0 and 1.0.
-# Defaults to 0.0
-min-score = 0.0
-
-# Respect Obsidian's userIgnoreFilters and attachmentFolderPath configuration.
-# If true, files matching these rules or located in the attachment directory are skipped during ingest.
-# Defaults to true
-respect-exclude = false
-
-# Include the file_path field in outputs.
-# If false, file paths are omitted to conserve token footprint for LLMs,
-# and clickable terminal hyperlinks will NOT be shown in text mode.
-# Defaults to true
-show-file-path = true
+# debug = false
 
 # ------------------------------------------------------------------------------
 # Ingestion Pipeline Settings
@@ -58,60 +33,21 @@ show-file-path = true
 
 # Number of concurrent workers to use when reading and parsing markdown files.
 # Defaults to 4
-workers = 4
+# workers = 4
 
-# Maximum number of runes (Unicode characters) per chunk sent to the parser.
-# MiniLM-L6-v2 is optimal at 128-256 tokens. At ~4.5 chars/rune for English prose,
-# 800 runes ≈ 178 tokens — leaving ~78 tokens of headroom for the contextual
-# augmentation prefix (title + heading path) prepended before embedding.
-# Defaults to 800
-chunk-size = 800
-
-# Number of runes repeated at the start of each sub-chunk when a section is split.
-# Provides 1-2 sentences of shared context at sub-chunk boundaries, reducing
-# information loss when a single large section exceeds chunk-size.
-# Defaults to 100
-chunk-overlap = 100
-
-# Skip text chunks containing fewer than this many words during ingestion.
-# Filters out heading-only sections (e.g. "## Installation"), code-only placeholders,
-# and wikilink-only paragraphs that produce near-zero-signal embeddings.
-# Rule of thumb: 1 word ≈ 1.3 tokens; MinChunkWords=10 ≈ 13 tokens minimum.
-# Defaults to 10
-min-chunk-words = 10
-
-# Skip image and file attachment links (e.g., ![[image.png]] or [[file.pdf]]) during indexing.
-# If true, attachment links are ignored and excluded from the wikilink graph.
-# Defaults to true
-skip-attachments = true
-
-# Enable text extraction from PDF attachments during ingestion using PDFium.
+# Respect Obsidian's userIgnoreFilters and attachmentFolderPath configuration.
+# If true, files matching these rules or located in the attachment directory are skipped during ingest.
 # Defaults to false
-enable-pdf = false
+# respect-exclude = false
 
-# Enable OCR fallback for scanned PDFs during ingestion (requires Tesseract).
-# This setting is ignored if enable-pdf is false.
+# Enable text extraction from PDF attachments during ingestion (requires --llm-model).
 # Defaults to false
-enable-ocr = false
+# enable-pdf = false
 
 # ------------------------------------------------------------------------------
-# Search and Traversal Settings
+# Display Settings
 # ------------------------------------------------------------------------------
 
-# Default maximum number of results to return for search, boosted, and hidden commands.
-# Defaults to 10
-limit = 10
-
-# Maximum number of chunks to return per note in semantic search.
-# Can be lowered (e.g., to 1 or 2) to increase result diversity across different notes.
-# Defaults to 3
-top-k = 3
-
-# Skip uncreated "phantom" notes (notes linked via wikilinks that do not exist as markdown files on disk).
-# If true, phantom notes are excluded from graph results (backlinks, connections, tags).
-# Defaults to true
-skip-phantom = true
-
-# Hide tag names (#Tag/Subtag) in search and graph outputs.
-# Defaults to true
-hide-tags = true
+# Show tag names (#Tag/Subtag) in search and graph outputs.
+# Defaults to false
+# show-tags = false

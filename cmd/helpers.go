@@ -9,7 +9,7 @@ import (
 
 // openStore opens the persistent ChromaDB store using global configuration.
 func openStore(ctx context.Context, globals *Globals) (*store.Store, error) {
-	return store.Open(ctx, globals.ChromaPath, store.WithSkipAttachments(globals.SkipAttachments))
+	return store.Open(ctx, globals.ChromaPath)
 }
 
 // formatTags joins tags as a comma-separated string.

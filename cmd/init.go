@@ -44,10 +44,6 @@ func (c *InitCmd) Run(globals *Globals) error {
 
 	// Ask for PDF support
 	enablePDF := askYesNo("Enable text extraction for PDF attachments?", false)
-	enableOCR := false
-	if enablePDF {
-		enableOCR = askYesNo("Enable OCR fallback for scanned PDFs? (requires Tesseract to be installed)", false)
-	}
 
 	// Prepare config file content
 	configStr := string(globals.DefaultConfig)
@@ -57,12 +53,9 @@ func (c *InitCmd) Run(globals *Globals) error {
 	newVaultLine := fmt.Sprintf(`vault-path = %q`, vaultPath)
 	configStr = strings.Replace(configStr, targetVaultLine, newVaultLine, 1)
 
-	// Replace PDF and OCR flags
+	// Replace PDF flag
 	if enablePDF {
-		configStr = strings.Replace(configStr, "enable-pdf = false", "enable-pdf = true", 1)
-	}
-	if enableOCR {
-		configStr = strings.Replace(configStr, "enable-ocr = false", "enable-ocr = true", 1)
+		configStr = strings.Replace(configStr, "# enable-pdf = false", "enable-pdf = true", 1)
 	}
 
 	// Write the config file

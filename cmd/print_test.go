@@ -130,7 +130,7 @@ func TestPrintResultsFormatted_MultiQuery(t *testing.T) {
 	}
 }
 
-func TestPrintResultsFormatted_HideTags(t *testing.T) {
+func TestPrintResultsFormatted_ShowTags(t *testing.T) {
 	var buf bytes.Buffer
 
 	results := []store.Result{
@@ -138,27 +138,27 @@ func TestPrintResultsFormatted_HideTags(t *testing.T) {
 	}
 	globals := &Globals{
 		Format:   "text",
-		HideTags: true,
+		ShowTags: false,
 	}
 
 	printResultsFormattedToWriter(&buf, "test", "query", "query", results, globals, nil)
 	out := buf.String()
 
 	if strings.Contains(out, "#Database/Redis") || strings.Contains(out, "#Backend") {
-		t.Errorf("Did not expect tags in output when HideTags=true, got %q", out)
+		t.Errorf("Did not expect tags in output when ShowTags=false, got %q", out)
 	}
 	if !strings.Contains(out, "Redis Note") {
 		t.Errorf("Expected note title in output, got %q", out)
 	}
 
-	// Now test HideTags = false
+	// Now test ShowTags = true
 	buf.Reset()
-	globals.HideTags = false
+	globals.ShowTags = true
 	printResultsFormattedToWriter(&buf, "test", "query", "query", results, globals, nil)
 	out2 := buf.String()
 
 	if !strings.Contains(out2, "#Database/Redis") || !strings.Contains(out2, "#Backend") {
-		t.Errorf("Expected tags in output when HideTags=false, got %q", out2)
+		t.Errorf("Expected tags in output when ShowTags=true, got %q", out2)
 	}
 }
 
@@ -177,7 +177,8 @@ func TestPrintResultsFormatted_Deep(t *testing.T) {
 		},
 	}
 	globals := &Globals{
-		Format: "text",
+		Format:   "text",
+		ShowTags: true,
 	}
 	flags := &ChunkDisplayFlags{IncludeText: true}
 
@@ -195,7 +196,7 @@ func TestPrintResultsFormatted_Deep(t *testing.T) {
 	}
 }
 
-func TestPrintResultsFormatted_Deep_SmartCapping(t *testing.T) {
+func TestPrintResultsFormatted_Deep_AllSections(t *testing.T) {
 	var buf bytes.Buffer
 
 	results := []store.Result{
@@ -207,25 +208,14 @@ func TestPrintResultsFormatted_Deep_SmartCapping(t *testing.T) {
 		},
 	}
 	globals := &Globals{
-		Format:  "text",
-		Verbose: false,
+		Format: "text",
 	}
 
 	printResultsFormattedToWriter(&buf, "hidden --deep", "query", "query", results, globals, nil)
 	out := buf.String()
 
-	if !strings.Contains(out, "└─ Matched target sections (5):") || !strings.Contains(out, "\"§ Methodologies\", \"§ Latency\", \"§ Queueing\"") || !strings.Contains(out, "(+2 more)") {
-		t.Errorf("Expected capped top-3 queries with (+2 more), got %q", out)
-	}
-
-	// Now verify --verbose shows all 5
-	buf.Reset()
-	globals.Verbose = true
-	printResultsFormattedToWriter(&buf, "hidden --deep", "query", "query", results, globals, nil)
-	out2 := buf.String()
-
-	if !strings.Contains(out2, "└─ Matched target sections (5):") || !strings.Contains(out2, "\"§ Methodologies\", \"§ Latency\", \"§ Queueing\", \"§ Profiling\", \"§ Caching\"") {
-		t.Errorf("Expected all 5 queries when Verbose=true, got %q", out2)
+	if !strings.Contains(out, "└─ Matched target sections (5):") || !strings.Contains(out, "\"§ Methodologies\", \"§ Latency\", \"§ Queueing\", \"§ Profiling\", \"§ Caching\"") {
+		t.Errorf("Expected all 5 matched section queries in deep output, got %q", out)
 	}
 }
 

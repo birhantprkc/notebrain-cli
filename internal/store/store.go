@@ -45,13 +45,6 @@ type Store struct {
 // Option configures Store when calling Open.
 type Option func(*Store)
 
-// WithSkipAttachments sets whether to exclude attachment links from graph edges.
-func WithSkipAttachments(skip bool) Option {
-	return func(s *Store) {
-		s.SkipAttachments = skip
-	}
-}
-
 // Open creates or opens the persistent ChromaDB store at path.
 func Open(ctx context.Context, path string, opts ...Option) (*Store, error) {
 	var client chroma.Client
