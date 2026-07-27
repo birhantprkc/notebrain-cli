@@ -5,49 +5,82 @@
 #   - Or any path and reference it using: notebrain --config /path/to/config.toml
 #
 # Note: Command line flags always override values specified in this file.
+# Note: Key names are normalized (kebab-case, snake_case, and camelCase match interchangeably).
 
 # ------------------------------------------------------------------------------
 # Core Settings
 # ------------------------------------------------------------------------------
 
 # Path to the local directory where ChromaDB stores its data.
-# Defaults to "~/.notebrain/chroma"
-# chroma-path = "~/.notebrain/chroma"
+# chroma-path = "~/.notebrain/chroma" # default: "~/.notebrain/chroma"
 
 # Absolute path to your Obsidian vault on disk.
-# If set here, you don't need to specify --vault-path on every 'ingest' execution.
-# vault-path = "/home/user/Documents/Obsidian Vault"
+# vault-path = "/home/user/Documents/Obsidian Vault" # default: ""
 
-# Default CLI output formatting option.
-# Options: "text" (human-readable), "json" (structured API), "tsv" (tabular)
-# Defaults to "text"
-# format = "text"
+# Default CLI output formatting option ("text", "json", or "tsv").
+# format = "text" # default: "text"
 
 # Enable debug logging to stderr.
-# Defaults to false
-# debug = false
+# debug = false # default: false
+
+# ------------------------------------------------------------------------------
+# Display & Output Settings
+# ------------------------------------------------------------------------------
+
+# Show tag names (#Tag/Subtag) in search and graph outputs.
+# show-tags = false # default: false
+
+# Include absolute file_path in output.
+# show-file-path = true # default: true
+
+# Exclude phantom (uncreated / non-existent target) notes from graph results.
+# skip-phantom = true # default: true
 
 # ------------------------------------------------------------------------------
 # Ingestion Pipeline Settings
 # ------------------------------------------------------------------------------
 
 # Number of concurrent workers to use when reading and parsing markdown files.
-# Defaults to 4
-# workers = 4
+# workers = 4 # default: 4
 
-# Respect Obsidian's userIgnoreFilters and attachmentFolderPath configuration.
-# If true, files matching these rules or located in the attachment directory are skipped during ingest.
-# Defaults to false
-# respect-exclude = false
+# Respect Obsidian's userIgnoreFilters and attachmentFolderPath configuration during ingest.
+# respect-exclude = false # default: false
 
 # Enable text extraction from PDF attachments during ingestion (requires --llm-model).
-# Defaults to false
-# enable-pdf = false
+# enable-pdf = false # default: false
+
+# LLM model for converting PDF attachments into clean Markdown.
+# Examples: "xiaomi/mimo-v2.5", "deepseek-v4-flash"
+# Note: Secret API keys (OPENROUTER_API_KEY, DEEPSEEK_API_KEY) must be provided in environment variables.
+# llm-model = "" # default: ""
+
+# Max runes per text chunk during note parsing.
+# chunk-size = 800 # default: 800
+
+# Overlap runes between sub-chunks.
+# chunk-overlap = 100 # default: 100
+
+# Skip chunks with fewer words than this threshold.
+# min-chunk-words = 10 # default: 10
 
 # ------------------------------------------------------------------------------
-# Display Settings
+# Search & Query Settings
 # ------------------------------------------------------------------------------
 
-# Show tag names (#Tag/Subtag) in search and graph outputs.
-# Defaults to false
-# show-tags = false
+# Include PDF text extraction results in semantic search (notebrain search / boosted).
+# with-pdf = false # default: false
+
+# Include matched markdown text snippets in search results.
+# include-text = false # default: false
+
+# Fetch +-N surrounding chunks around each match (0 = disabled).
+# context-window = 0 # default: 0
+
+# Minimum similarity score (0.0 to 1.0) to include in search results.
+# min-score = 0.0 # default: 0.0
+
+# Maximum number of search results to return.
+# limit = 10 # default: 10
+
+# Maximum chunks to retain per note during search (prevents single note saturation).
+# top-k = 3 # default: 3
