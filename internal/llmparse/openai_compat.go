@@ -26,6 +26,7 @@ type openAICompatConverter struct {
 	name          string
 	contextWindow int
 	headers       map[string]string
+	client        *http.Client
 }
 
 func newOpenAICompatConverter(baseURL, apiKey, model, name string, contextWindow int, headers map[string]string) *openAICompatConverter {
@@ -36,6 +37,7 @@ func newOpenAICompatConverter(baseURL, apiKey, model, name string, contextWindow
 		name:          name,
 		contextWindow: contextWindow,
 		headers:       headers,
+		client:        &http.Client{Timeout: 90 * time.Second},
 	}
 }
 
@@ -86,120 +88,143 @@ func (o *openAICompatConverter) Convert(ctx context.Context, pages []string) (st
 	}
 
 	chunks := splitByTokenBudget(pages, budget)
+	totalChunks := len(chunks)
 
 	var results []string
-	reqURL := strings.TrimSuffix(o.baseURL, "/") + "/chat/completions"
-
-	for _, chunk := range chunks {
-		reqBody := chatRequest{
-			Model: o.model,
-			Messages: []chatMessage{
-				{Role: "system", Content: systemPrompt},
-				{Role: "user", Content: chunk},
-			},
-			Temperature: 0.1,
+	for i, chunk := range chunks {
+		if totalChunks > 1 {
+			slog.Info("converting PDF chunk", "backend", o.name, "chunk", i+1, "total", totalChunks)
 		}
 
-		bodyBytes, err := json.Marshal(reqBody)
+		res, err := o.convertChunk(ctx, chunk)
 		if err != nil {
-			return "", fmt.Errorf("%s marshal request: %w", o.name, err)
+			return "", fmt.Errorf("%s chunk %d/%d: %w", o.name, i+1, totalChunks, err)
 		}
-
-		var respBody []byte
-		var chatResp chatResponse
-		backoff := initialBackoff
-		success := false
-
-		for attempt := 0; attempt <= maxRetries; attempt++ {
-			req, err := http.NewRequestWithContext(ctx, "POST", reqURL, bytes.NewReader(bodyBytes))
-			if err != nil {
-				return "", fmt.Errorf("%s create request: %w", o.name, err)
-			}
-
-			req.Header.Set("Authorization", "Bearer "+o.apiKey)
-			req.Header.Set("Content-Type", "application/json")
-			for k, v := range o.headers {
-				req.Header.Set(k, v)
-			}
-
-			client := &http.Client{Timeout: 90 * time.Second}
-			resp, err := client.Do(req)
-			if err != nil {
-				if attempt < maxRetries {
-					slog.Warn("request failed, retrying", "backend", o.name, "attempt", attempt+1, "err", err, "backoff", backoff)
-					select {
-					case <-ctx.Done():
-						return "", ctx.Err()
-					case <-time.After(backoff):
-						backoff *= 2
-						continue
-					}
-				}
-				return "", fmt.Errorf("%s request failed: %w", o.name, err)
-			}
-
-			respBody, err = io.ReadAll(resp.Body)
-			resp.Body.Close()
-			if err != nil {
-				if attempt < maxRetries {
-					slog.Warn("reading response body failed, retrying", "backend", o.name, "attempt", attempt+1, "err", err, "backoff", backoff)
-					select {
-					case <-ctx.Done():
-						return "", ctx.Err()
-					case <-time.After(backoff):
-						backoff *= 2
-						continue
-					}
-				}
-				return "", fmt.Errorf("%s read response: %w", o.name, err)
-			}
-
-			chatResp = chatResponse{}
-			_ = json.Unmarshal(respBody, &chatResp)
-
-			if resp.StatusCode == http.StatusOK {
-				success = true
-				break
-			}
-
-			if (resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500) && attempt < maxRetries {
-				sleepDuration := backoff
-				if ra := parseRetryAfter(resp.Header.Get("Retry-After")); ra > 0 {
-					sleepDuration = ra
-				}
-				errMsg := "unknown error"
-				if chatResp.Error != nil && chatResp.Error.Message != "" {
-					errMsg = chatResp.Error.Message
-				} else if len(respBody) > 0 {
-					errMsg = strings.TrimSpace(string(respBody))
-				}
-				slog.Warn("rate limited or server error, retrying", "backend", o.name, "status", resp.StatusCode, "err", errMsg, "attempt", attempt+1, "backoff", sleepDuration)
-				select {
-				case <-ctx.Done():
-					return "", ctx.Err()
-				case <-time.After(sleepDuration):
-					backoff *= 2
-					continue
-				}
-			}
-
-			errMsg := "unknown error"
-			if chatResp.Error != nil && chatResp.Error.Message != "" {
-				errMsg = chatResp.Error.Message
-			}
-			return "", fmt.Errorf("%s API error (status %d): %s", o.name, resp.StatusCode, errMsg)
-		}
-
-		if !success {
-			return "", fmt.Errorf("%s request failed after retries", o.name)
-		}
-
-		if len(chatResp.Choices) == 0 {
-			return "", fmt.Errorf("%s returned no choices. body: %s", o.name, string(respBody))
-		}
-
-		results = append(results, chatResp.Choices[0].Message.Content)
+		results = append(results, res)
 	}
 
 	return strings.Join(results, "\n\n"), nil
+}
+
+func (o *openAICompatConverter) convertChunk(ctx context.Context, chunk string) (string, error) {
+	reqBody := chatRequest{
+		Model: o.model,
+		Messages: []chatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: chunk},
+		},
+		Temperature: 0.1,
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("marshal request: %w", err)
+	}
+
+	reqURL := strings.TrimSuffix(o.baseURL, "/") + "/chat/completions"
+
+	respBody, err := o.doWithRetry(ctx, reqURL, bodyBytes)
+	if err != nil {
+		return "", err
+	}
+
+	var chatResp chatResponse
+	if err := json.Unmarshal(respBody, &chatResp); err != nil {
+		return "", fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	if len(chatResp.Choices) == 0 {
+		return "", fmt.Errorf("returned no choices. body: %s", string(respBody))
+	}
+
+	return chatResp.Choices[0].Message.Content, nil
+}
+
+func (o *openAICompatConverter) doWithRetry(ctx context.Context, reqURL string, bodyBytes []byte) ([]byte, error) {
+	backoff := initialBackoff
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, "POST", reqURL, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return nil, fmt.Errorf("create request: %w", err)
+		}
+
+		req.Header.Set("Authorization", "Bearer "+o.apiKey)
+		req.Header.Set("Content-Type", "application/json")
+		for k, v := range o.headers {
+			req.Header.Set(k, v)
+		}
+
+		resp, err := o.client.Do(req)
+		if err != nil {
+			if attempt < maxRetries {
+				slog.Warn("request failed, retrying", "backend", o.name, "attempt", attempt+1, "err", err, "backoff", backoff)
+				if sleepErr := sleepWithContext(ctx, backoff); sleepErr != nil {
+					return nil, sleepErr
+				}
+				backoff *= 2
+				continue
+			}
+			return nil, fmt.Errorf("request failed: %w", err)
+		}
+
+		respBody, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			if attempt < maxRetries {
+				slog.Warn("reading response body failed, retrying", "backend", o.name, "attempt", attempt+1, "err", err, "backoff", backoff)
+				if sleepErr := sleepWithContext(ctx, backoff); sleepErr != nil {
+					return nil, sleepErr
+				}
+				backoff *= 2
+				continue
+			}
+			return nil, fmt.Errorf("read response: %w", err)
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			return respBody, nil
+		}
+
+		var chatResp chatResponse
+		_ = json.Unmarshal(respBody, &chatResp)
+
+		if (resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500) && attempt < maxRetries {
+			sleepDuration := backoff
+			if ra := parseRetryAfter(resp.Header.Get("Retry-After")); ra > 0 {
+				sleepDuration = ra
+			}
+			errMsg := extractErrorMessage(chatResp, respBody)
+			slog.Warn("rate limited or server error, retrying", "backend", o.name, "status", resp.StatusCode, "err", errMsg, "attempt", attempt+1, "backoff", sleepDuration)
+			if sleepErr := sleepWithContext(ctx, sleepDuration); sleepErr != nil {
+				return nil, sleepErr
+			}
+			backoff *= 2
+			continue
+		}
+
+		errMsg := extractErrorMessage(chatResp, respBody)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, errMsg)
+	}
+
+	return nil, fmt.Errorf("request failed after retries")
+}
+
+func extractErrorMessage(chatResp chatResponse, respBody []byte) string {
+	if chatResp.Error != nil && chatResp.Error.Message != "" {
+		return chatResp.Error.Message
+	}
+	if len(respBody) > 0 {
+		return strings.TrimSpace(string(respBody))
+	}
+	return "unknown error"
+}
+
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(d):
+		return nil
+	}
 }

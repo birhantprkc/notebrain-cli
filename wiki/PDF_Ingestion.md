@@ -11,13 +11,13 @@ NoteBrain supports indexing your PDF attachments using Large Language Models (LL
 
 NoteBrain automatically detects the provider based on the model prefix or available API keys in your environment.
 
-| Provider           | Environment Variable | Model Syntax Example              |
-| :----------------- | :------------------- | :-------------------------------- |
-| **OpenRouter**     | `OPENROUTER_API_KEY` | `--llm-model="tencent/hy3"`       |
-| **DeepSeek**       | `DEEPSEEK_API_KEY`   | `--llm-model="deepseek-v4-flash"` |
-| **OpenAI**         | `OPENAI_API_KEY`     | `--llm-model="gpt-4o"`            |
-| **Gemini**         | `GEMINI_API_KEY`     | `--llm-model="gemini-2.5-flash"`  |
-| **Ollama** (Local) | `OLLAMA_HOST`        | `--llm-model="ollama/llama3"`     |
+| Provider           | Environment Variable | Model Syntax Example                  |
+| :----------------- | :------------------- | :------------------------------------ |
+| **OpenRouter**     | `OPENROUTER_API_KEY` | `--llm-model="tencent/hy3"`           |
+| **DeepSeek**       | `DEEPSEEK_API_KEY`   | `--llm-model="deepseek-v4-flash"`     |
+| **OpenAI**         | `OPENAI_API_KEY`     | `--llm-model="gpt-4o"`                |
+| **Gemini**         | `GEMINI_API_KEY`     | `--llm-model="gemini-3.5-flash-lite"` |
+| **Ollama** (Local) | `OLLAMA_HOST`        | `--llm-model="ollama/llama3"`         |
 
 ## How to Enable
 
@@ -26,7 +26,7 @@ To index PDFs during an ingestion run, supply the `--enable-pdf` and `--llm-mode
 ```bash
 export OPENROUTER_API_KEY="your-key-here"
 
-notebrain ingest --enable-pdf --llm-model="openrouter/inclusionai/ling-3.0-flash:free"
+notebrain ingest --enable-pdf --llm-model="tencent/hy3"
 ```
 
 You can also set these persistently via the CLI wizard:
@@ -39,7 +39,7 @@ Or in your `~/.notebrain/config.toml`:
 
 ```toml
 enable_pdf = true
-llm_model = "openrouter/inclusionai/ling-3.0-flash:free"
+llm_model = "tencent/hy3"
 ```
 
 ## Graceful Fallbacks & Cost Control
