@@ -425,8 +425,13 @@ func (s *Store) buildLinkTargetResolver(ctx context.Context) map[string]string {
 			resolver[strings.ToLower(path)] = slug
 			resolver[parser.Slugify(path)] = slug
 			base := filepath.Base(path)
+			if base != "" {
+				resolver[base] = slug
+				resolver[strings.ToLower(base)] = slug
+				resolver[parser.Slugify(base)] = slug
+			}
 			baseNoExt := strings.TrimSuffix(base, filepath.Ext(base))
-			if baseNoExt != "" {
+			if baseNoExt != "" && baseNoExt != base {
 				resolver[baseNoExt] = slug
 				resolver[strings.ToLower(baseNoExt)] = slug
 				resolver[parser.Slugify(baseNoExt)] = slug
@@ -441,7 +446,7 @@ func (s *Store) linkWhereFilters(ctx context.Context, targetSlug string, resolve
 	candidatesMap := map[string]struct{}{
 		targetSlug: {},
 	}
-	title, filePath, found := s.noteInfoForSlug(ctx, targetSlug)
+	title, filePath, _, found := s.noteInfoForSlug(ctx, targetSlug)
 	if found {
 		if title != "" {
 			candidatesMap[title] = struct{}{}
@@ -507,11 +512,12 @@ func (s *Store) Backlinks(ctx context.Context, targetSlug string) ([]Result, err
 			continue
 		}
 		seen[slug] = true
-		title, filePath, found := s.noteInfoForSlug(ctx, slug)
+		title, filePath, fileType, found := s.noteInfoForSlug(ctx, slug)
 		out = append(out, Result{
 			NoteSlug:  slug,
 			Title:     title,
 			FilePath:  filePath,
+			FileType:  fileType,
 			Score:     1.0,
 			Extra:     metaString(meta, "display_text"),
 			IsPhantom: !found,
@@ -548,11 +554,12 @@ func (s *Store) Connections(ctx context.Context, seedSlug string, maxHops int) (
 	delete(visited, seedSlug)
 	var out []Result
 	for slug, hop := range visited {
-		title, filePath, found := s.noteInfoForSlug(ctx, slug)
+		title, filePath, fileType, found := s.noteInfoForSlug(ctx, slug)
 		out = append(out, Result{
 			NoteSlug:  slug,
 			Title:     title,
 			FilePath:  filePath,
+			FileType:  fileType,
 			Score:     float64(hop),
 			Extra:     fmt.Sprintf("%d hop(s)", hop),
 			IsPhantom: !found,
@@ -833,11 +840,12 @@ func (s *Store) SharedTags(ctx context.Context, noteSlug string, minShared int) 
 		if count < minShared {
 			continue
 		}
-		title, filePath, found := s.noteInfoForSlug(ctx, slug)
+		title, filePath, fileType, found := s.noteInfoForSlug(ctx, slug)
 		out = append(out, Result{
 			NoteSlug:  slug,
 			Title:     title,
 			FilePath:  filePath,
+			FileType:  fileType,
 			Score:     float64(count),
 			Tags:      noteTagNames[slug],
 			IsPhantom: !found,
@@ -1211,7 +1219,7 @@ func (s *Store) notesWithTag(ctx context.Context, tag string) []string {
 }
 
 // noteInfoForSlug fetches the title and file path of a note's first chunk.
-func (s *Store) noteInfoForSlug(ctx context.Context, slug string) (title, filePath string, found bool) {
+func (s *Store) noteInfoForSlug(ctx context.Context, slug string) (title, filePath, fileType string, found bool) {
 	res, err := s.chunks.Get(ctx,
 		chroma.WithWhere(chroma.And(
 			chroma.EqString("note_slug", slug),
@@ -1220,7 +1228,7 @@ func (s *Store) noteInfoForSlug(ctx context.Context, slug string) (title, filePa
 		chroma.WithInclude(chroma.IncludeMetadatas),
 	)
 	if err != nil || len(res.GetMetadatas()) == 0 {
-		return slug, "", false
+		return slug, "", "", false
 	}
 	m := res.GetMetadatas()[0]
 	title = metaString(m, "title")
@@ -1228,7 +1236,8 @@ func (s *Store) noteInfoForSlug(ctx context.Context, slug string) (title, filePa
 		title = slug
 	}
 	filePath = metaString(m, "file_path")
-	return title, filePath, true
+	fileType = metaString(m, "file_type")
+	return title, filePath, fileType, true
 }
 
 // metaString safely reads a string from a DocumentMetadata.
