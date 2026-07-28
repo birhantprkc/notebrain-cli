@@ -12,8 +12,9 @@ Rules:
 5. Convert bullet points and numbered lists to standard Markdown lists.
 6. Format mathematical expressions using LaTeX ($...$ or $$...$$).
 7. REMOVE page numbers, running headers/footers, watermarks, and navigation artifacts.
-8. Do NOT add, summarize, or modify any content — preserve the original text exactly.
-9. Output ONLY raw Markdown. No explanations, no wrapping fences, no preamble.`
+8. REMOVE gibberish text, garbled characters, or obvious OCR artifacts. Only remove clearly non-linguistic noise (e.g. repeated random character strings or scanning artifacts); when in doubt, keep the text to preserve unfamiliar technical notation or formulas.
+9. Do NOT add, summarize, or modify any content — preserve the original text exactly, except for removing garbage/gibberish.
+10. Output ONLY raw Markdown. No explanations, no wrapping fences, no preamble.`
 
 // splitByTokenBudget splits PDF pages into chunks that fit within maxTokens.
 // Uses page boundaries as natural split points to avoid mid-sentence breaks.

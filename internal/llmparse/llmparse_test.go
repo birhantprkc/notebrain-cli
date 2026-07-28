@@ -10,43 +10,73 @@ import (
 	"testing"
 )
 
-func TestNewFactory(t *testing.T) {
-	// Setup env
-	os.Setenv("DEEPSEEK_API_KEY", "test-deepseek")
-	os.Setenv("OPENROUTER_API_KEY", "test-or")
+func TestNewAutoDetection(t *testing.T) {
+	os.Clearenv()
 	defer os.Clearenv()
 
-	tests := []struct {
-		model    string
-		wantName string
-		wantErr  bool
-	}{
-		{"deepseek-chat", "deepseek", false},
-		{"openrouter/anthropic/claude-sonnet", "openrouter", false},
-		{"unknown-model", "openrouter", false},
+	// 1. No keys set -> Error
+	_, err := New("some-model", 128000)
+	if err == nil {
+		t.Errorf("expected error when no API keys are set, got nil")
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.model, func(t *testing.T) {
-			conv, err := New(tt.model)
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("expected error for model %s, got nil", tt.model)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error for model %s: %v", tt.model, err)
-			}
-			if conv.Name() != tt.wantName {
-				t.Errorf("expected name %s, got %s", tt.wantName, conv.Name())
-			}
-		})
+	// 2. OpenRouter set -> openrouter
+	os.Setenv("OPENROUTER_API_KEY", "test-or")
+	conv, err := New("some-model", 128000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if conv.Name() != "openrouter" {
+		t.Errorf("expected backend openrouter, got %s", conv.Name())
+	}
+
+	// 3. DeepSeek set -> deepseek (takes precedence over openrouter)
+	os.Setenv("DEEPSEEK_API_KEY", "  \"sk-deep seek\"  ")
+	conv, err = New("some-model", 128000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if conv.Name() != "deepseek" {
+		t.Errorf("expected backend deepseek, got %s", conv.Name())
+	}
+
+	// Verify key sanitization (space outside and inside quotes)
+	cStruct, ok := conv.(*openAICompatConverter)
+	if !ok {
+		t.Fatalf("expected *openAICompatConverter")
+	}
+	if cStruct.apiKey != "sk-deepseek" {
+		t.Errorf("expected sanitized apiKey 'sk-deepseek', got %q", cStruct.apiKey)
+	}
+
+	// 4. Ollama keyless via OLLAMA_HOST when no keys are set
+	os.Clearenv()
+	os.Setenv("OLLAMA_HOST", "http://localhost:11434")
+	conv, err = New("some-model", 128000)
+	if err != nil {
+		t.Fatalf("unexpected error with OLLAMA_HOST: %v", err)
+	}
+	if conv.Name() != "ollama" {
+		t.Errorf("expected backend ollama, got %s", conv.Name())
+	}
+}
+
+func TestContextWindowValidation(t *testing.T) {
+	os.Setenv("DEEPSEEK_API_KEY", "test")
+	defer os.Clearenv()
+
+	_, err := New("some-model", 8000)
+	if err == nil {
+		t.Errorf("expected error for context window < 12288, got nil")
 	}
 }
 
 func TestOpenAICompatConverter(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/chat/completions" {
+			t.Errorf("expected path /chat/completions, got %s", r.URL.Path)
+		}
+
 		if r.Header.Get("Authorization") != "Bearer test-key" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -79,7 +109,9 @@ func TestOpenAICompatConverter(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	conv := newOpenAICompatConverter(mockServer.URL, "test-key", "test-model", "test-backend", nil)
+	// Test trailing slash removal on base URL
+	baseURLWithTrailingSlash := mockServer.URL + "/"
+	conv := newOpenAICompatConverter(baseURLWithTrailingSlash, "test-key", "test-model", "test-backend", 128000, nil)
 
 	result, err := conv.Convert(context.Background(), []string{"raw text"})
 	if err != nil {
@@ -91,11 +123,50 @@ func TestOpenAICompatConverter(t *testing.T) {
 	}
 }
 
-func TestSplitByTokenBudget(t *testing.T) {
-	// A chunk that exceeds the budget to test splitting
-	// budget is maxTokens, characters ~ maxTokens * 4
-	// Let's test with maxTokens = 10, so maxChars = 40
+func TestOpenAICompatConverter_RetryOn429(t *testing.T) {
+	attempts := 0
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts == 1 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			w.Write([]byte(`{"error": {"message": "rate limit exceeded"}}`))
+			return
+		}
 
+		resp := chatResponse{}
+		resp.Choices = append(resp.Choices, struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		}{
+			Message: struct {
+				Content string `json:"content"`
+			}{
+				Content: "recovered markdown",
+			},
+		})
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer mockServer.Close()
+
+	conv := newOpenAICompatConverter(mockServer.URL, "test-key", "test-model", "test-backend", 128000, nil)
+
+	result, err := conv.Convert(context.Background(), []string{"raw text"})
+	if err != nil {
+		t.Fatalf("Convert failed on retry: %v", err)
+	}
+
+	if attempts != 2 {
+		t.Errorf("expected 2 attempts, got %d", attempts)
+	}
+
+	if result != "recovered markdown" {
+		t.Errorf("expected 'recovered markdown', got %q", result)
+	}
+}
+
+func TestSplitByTokenBudget(t *testing.T) {
 	pages := []string{
 		strings.Repeat("a", 20), // 20 chars
 		strings.Repeat("b", 15), // 15 chars (total 35) -> should fit in chunk 1
