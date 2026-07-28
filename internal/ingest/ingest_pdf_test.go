@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -99,5 +100,46 @@ func TestProcessPdfFile_SkipUnchanged(t *testing.T) {
 	}
 	if res != nil {
 		t.Fatal("expected nil result for unchanged file")
+	}
+}
+
+type mockFailingLLMConverter struct{}
+
+func (m *mockFailingLLMConverter) Convert(ctx context.Context, pages []string) (string, error) {
+	return "", fmt.Errorf("simulated LLM conversion error")
+}
+func (m *mockFailingLLMConverter) Name() string { return "mock-fail" }
+
+func TestProcessPdfFile_FailureRecording(t *testing.T) {
+	dir := t.TempDir()
+	pdfPath := filepath.Join(dir, "broken.pdf")
+	if err := os.WriteFile(pdfPath, []byte("%PDF-1.4 test"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	p := &Pipeline{
+		embedder:     &mockEmbedder{},
+		pdfBackend:   &mockPDFBackend{},
+		llmConverter: &mockFailingLLMConverter{},
+	}
+
+	res, err := p.processPdfFile(context.Background(), dir, pdfPath, make(map[string]string))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res != nil {
+		t.Fatal("expected nil result on failure")
+	}
+
+	failed := p.FailedFiles()
+	if len(failed) != 1 {
+		t.Fatalf("expected 1 failed file record, got %d", len(failed))
+	}
+
+	if failed[0].FilePath != "broken.pdf" {
+		t.Errorf("expected FilePath 'broken.pdf', got %q", failed[0].FilePath)
+	}
+	if !strings.Contains(failed[0].Reason, "simulated LLM conversion error") {
+		t.Errorf("expected reason to contain 'simulated LLM conversion error', got %q", failed[0].Reason)
 	}
 }

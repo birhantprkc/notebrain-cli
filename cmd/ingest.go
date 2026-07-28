@@ -31,14 +31,15 @@ import (
 )
 
 type IngestCmd struct {
-	Glob           string `arg:"" optional:"" help:"glob pattern to filter files (default: all .md files)"`
-	Workers        int    `help:"number of concurrent ingestion workers" default:"4"`
-	MinChunkWords  int    `name:"min-chunk-words" help:"skip chunks with fewer words" default:"10"`
-	ChunkSize      int    `name:"chunk-size" help:"max runes per chunk" default:"800"`
-	ChunkOverlap   int    `name:"chunk-overlap" help:"overlap runes between sub-chunks" default:"100"`
-	RespectExclude bool   `help:"respect Obsidian userIgnoreFilters and attachmentFolderPath settings during ingest" default:"false"`
-	EnablePDF      bool   `help:"enable indexing of PDF attachments" default:"false"`
-	LLMModel       string `name:"llm-model" help:"LLM model to use for PDF parsing (e.g. openrouter/anthropic/claude-sonnet, deepseek-chat). Requires API key in env." default:""`
+	Glob             string `arg:"" optional:"" help:"glob pattern to filter files (default: all .md files)"`
+	Workers          int    `help:"number of concurrent ingestion workers" default:"4"`
+	MinChunkWords    int    `name:"min-chunk-words" help:"skip chunks with fewer words" default:"10"`
+	ChunkSize        int    `name:"chunk-size" help:"max runes per chunk" default:"800"`
+	ChunkOverlap     int    `name:"chunk-overlap" help:"overlap runes between sub-chunks" default:"100"`
+	RespectExclude   bool   `help:"respect Obsidian userIgnoreFilters and attachmentFolderPath settings during ingest" default:"false"`
+	EnablePDF        bool   `help:"enable indexing of PDF attachments" default:"false"`
+	LLMModel         string `name:"llm-model" help:"LLM model to use for PDF parsing (e.g. openrouter/anthropic/claude-sonnet, deepseek-chat). Requires API key in env." default:""`
+	LLMContextWindow int    `name:"llm-context-window" help:"total context window size of the LLM in tokens. Set this to match your specific model." default:"128000"`
 }
 
 func (c *IngestCmd) Run(globals *Globals) error {
@@ -73,6 +74,7 @@ func (c *IngestCmd) Run(globals *Globals) error {
 	pipeline.RespectExclude = c.RespectExclude
 	pipeline.EnablePDF = c.EnablePDF
 	pipeline.LLMModel = c.LLMModel
+	pipeline.LLMContextWindow = c.LLMContextWindow
 	pipeline.MinChunkWords = c.MinChunkWords
 	pipeline.ChunkSize = c.ChunkSize
 	pipeline.ChunkOverlap = c.ChunkOverlap

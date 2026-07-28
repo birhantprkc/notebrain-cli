@@ -28,22 +28,49 @@ type Embedder interface {
 	Embed(ctx context.Context, text string) ([]float32, error)
 }
 
+// FailedFile records a file that failed during ingestion along with the failure reason.
+type FailedFile struct {
+	FilePath string `json:"file_path"`
+	Reason   string `json:"reason"`
+}
+
 // Pipeline orchestrates the ingestion of markdown files into the ChromaDB store.
 type Pipeline struct {
-	store           *store.Store
-	embedder        Embedder
-	workers         int
-	MinChunkWords   int // minimum word count to keep a chunk (filters junk)
-	ChunkSize       int // maximum runes per chunk fed to Parse
-	ChunkOverlap    int // overlap runes between sub-chunks when a section is split
-	MaxEmbedTokens  int // max tokens for embed text (model sequence length)
-	RespectExclude  bool
-	SkipAttachments bool
-	EnablePDF       bool
-	LLMModel        string
-	llmConverter    llmparse.Converter
-	pdfBackend      pdfextract.PDFBackend
-	ocrBackend      pdfextract.OCRBackend
+	store            *store.Store
+	embedder         Embedder
+	workers          int
+	MinChunkWords    int // minimum word count to keep a chunk (filters junk)
+	ChunkSize        int // maximum runes per chunk fed to Parse
+	ChunkOverlap     int // overlap runes between sub-chunks when a section is split
+	MaxEmbedTokens   int // max tokens for embed text (model sequence length)
+	RespectExclude   bool
+	SkipAttachments  bool
+	EnablePDF        bool
+	LLMModel         string
+	LLMContextWindow int
+	llmConverter     llmparse.Converter
+	pdfBackend       pdfextract.PDFBackend
+	ocrBackend       pdfextract.OCRBackend
+	failedFilesMu    sync.Mutex
+	failedFiles      []FailedFile
+}
+
+func (p *Pipeline) recordFailedFile(filePath, reason string) {
+	p.failedFilesMu.Lock()
+	defer p.failedFilesMu.Unlock()
+	p.failedFiles = append(p.failedFiles, FailedFile{
+		FilePath: filePath,
+		Reason:   reason,
+	})
+}
+
+// FailedFiles returns a copy of all file ingestion failures recorded during the run.
+func (p *Pipeline) FailedFiles() []FailedFile {
+	p.failedFilesMu.Lock()
+	defer p.failedFilesMu.Unlock()
+	copied := make([]FailedFile, len(p.failedFiles))
+	copy(copied, p.failedFiles)
+	return copied
 }
 
 // NewPipeline creates an ingestion pipeline with the given number of concurrent workers.
@@ -57,12 +84,13 @@ func NewPipeline(s *store.Store, e Embedder, workers int) *Pipeline {
 		embedder: e,
 		workers:  workers,
 		// Defaults matching config.Default() — callers should override from config.
-		ChunkSize:       800,
-		ChunkOverlap:    100,
-		MinChunkWords:   10,
-		MaxEmbedTokens:  256,
-		RespectExclude:  false,
-		SkipAttachments: true,
+		ChunkSize:        800,
+		ChunkOverlap:     100,
+		MinChunkWords:    10,
+		MaxEmbedTokens:   256,
+		RespectExclude:   false,
+		SkipAttachments:  true,
+		LLMContextWindow: 128000,
 	}
 }
 
@@ -82,7 +110,7 @@ func (p *Pipeline) Run(ctx context.Context, vaultPath string, glob string, _ io.
 			p.pdfBackend = pb
 			defer pb.Close()
 
-			converter, err := llmparse.New(p.LLMModel)
+			converter, err := llmparse.New(p.LLMModel, p.LLMContextWindow)
 			if err != nil {
 				return fmt.Errorf("LLM PDF parser: %w", err)
 			}
@@ -189,6 +217,8 @@ fileLoop:
 
 			res, err := p.processFile(ctx, vaultPath, f, hashes)
 			if err != nil {
+				rel, _ := filepath.Rel(vaultPath, f)
+				p.recordFailedFile(rel, err.Error())
 				errCh <- fmt.Errorf("file %s: %w", f, err)
 				return
 			}
@@ -230,6 +260,14 @@ fileLoop:
 			firstErr = e
 		}
 		slog.Error("ingestion worker error", "err", e)
+	}
+
+	failed := p.FailedFiles()
+	if len(failed) > 0 {
+		slog.Warn("ingestion finished with failed files", "failed_count", len(failed))
+		for _, ff := range failed {
+			slog.Warn("failed file summary", "file", ff.FilePath, "reason", ff.Reason)
+		}
 	}
 
 	if firstErr == nil && ctx.Err() != nil {
@@ -514,12 +552,14 @@ func (p *Pipeline) processPdfFile(ctx context.Context, vaultPath string, filePat
 	pages, err := p.pdfBackend.ExtractText(ctx, filePath)
 	if err != nil {
 		slog.Warn("pdf extract text failed, skipping PDF", "file", relPath, "err", err)
+		p.recordFailedFile(relPath, fmt.Sprintf("PDF text extraction failed: %v", err))
 		return nil, nil
 	}
 	slog.Debug("sending PDF to LLM for markdown conversion", "file", relPath, "pages", len(pages))
 	markdown, err = p.llmConverter.Convert(ctx, pages)
 	if err != nil {
 		slog.Warn("LLM conversion failed, skipping PDF", "file", relPath, "err", err)
+		p.recordFailedFile(relPath, fmt.Sprintf("LLM conversion failed: %v", err))
 		return nil, nil
 	}
 

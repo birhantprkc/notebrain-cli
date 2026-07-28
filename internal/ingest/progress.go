@@ -18,26 +18,22 @@ type ProgressUpdate struct {
 	Final   bool
 }
 
-// RunProgress logs ingestion progress via structured slog events.
+// RunProgress logs ingestion progress via structured slog events for every file.
 func RunProgress(totalFiles int, progressCh <-chan ProgressUpdate) {
-	step := max(1, min(10, totalFiles), totalFiles/5)
-	lastLogged := -step - 1
 	start := time.Now()
 
 	for u := range progressCh {
-		if u.Done >= lastLogged+step || u.Done == totalFiles || u.Final {
-			percent := 0.0
-			if totalFiles > 0 {
-				percent = math.Round(float64(u.Done)/float64(totalFiles)*10000) / 100
-			}
-			slog.Info("ingestion progress",
-				"processed", u.Done,
-				"total", totalFiles,
-				"percent", percent,
-				"current", u.Current,
-				"elapsed_ms", time.Since(start).Milliseconds())
-			lastLogged = u.Done
+		percent := 0.0
+		if totalFiles > 0 {
+			percent = math.Round(float64(u.Done)/float64(totalFiles)*10000) / 100
 		}
+		slog.Info("ingestion progress",
+			"processed", u.Done,
+			"total", totalFiles,
+			"percent", percent,
+			"current", u.Current,
+			"elapsed_ms", time.Since(start).Milliseconds())
+
 		if u.Final {
 			break
 		}
