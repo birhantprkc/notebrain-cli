@@ -101,8 +101,9 @@ notebrain ingest [<glob>] [flags]
 | `--min-chunk-words` | `integer` | `10`    | Skip chunks with fewer words than this.                                                 |
 | `--chunk-size`      | `integer` | `800`   | Maximum runes per chunk for the parser.                                                 |
 | `--chunk-overlap`   | `integer` | `100`   | Overlap runes between sub-chunks when a section is split.                               |
-| `--enable-pdf`      | `boolean` | `false` | Enable PDF text extraction (and auto-OCR). Requires `--llm-model`.                      |
-| `--llm-model`       | `string`  | `""`    | LLM model to use for PDF parsing (e.g., `openrouter/inclusionai/ling-3.0-flash:free`). |
+| `--enable-pdf`          | `boolean` | `false`  | Enable PDF text extraction (and auto-OCR). Requires `--llm-model`.                      |
+| `--llm-model`           | `string`  | `""`     | LLM model to use for PDF parsing (e.g., `openrouter/inclusionai/ling-3.0-flash:free`). |
+| `--llm-context-window`  | `integer` | `128000` | Total context window size of the LLM in tokens.                                         |
 
 > Note: OCR via Tesseract is auto-detected whenever `--enable-pdf` is active and `tesseract` is present in `$PATH`. Attachment links are automatically excluded from graph edges during indexing.
 

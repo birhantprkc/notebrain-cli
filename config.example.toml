@@ -50,9 +50,11 @@
 # enable-pdf = false # default: false
 
 # LLM model for converting PDF attachments into clean Markdown.
-# Examples: "xiaomi/mimo-v2.5", "deepseek-v4-flash"
-# Note: Secret API keys (OPENROUTER_API_KEY, DEEPSEEK_API_KEY) must be provided in environment variables.
+# Backend is auto-detected based on which API key environment variable is present (DEEPSEEK_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, OLLAMA_HOST).
 # llm-model = "" # default: ""
+
+# Total context window size of the LLM in tokens (used for dynamic PDF chunking).
+# llm-context-window = 128000 # default: 128000
 
 # Max runes per text chunk during note parsing.
 # chunk-size = 800 # default: 800

@@ -23,7 +23,7 @@ notebrain stats --format=json
 ```
 
 - If the binary is missing or errors, tell the user plainly: _"NoteBrain doesn't appear to be installed or accessible. I can't search your vault without it."_ Do not fall back to `grep`/`find` against raw markdown files.
-- If NoteBrain throws configuration or dependency errors (like missing Tesseract or unconfigured paths), suggest the user run `notebrain doctor` to diagnose issues or `notebrain init` to interactively set up their configuration. **Do not run `notebrain init` yourself**, as it requires an interactive terminal.
+- If NoteBrain throws configuration or dependency errors, inform the user plainly so they can check their vault setup or configuration.
 - If `stats` returns `0` chunks, the vault hasn't been indexed yet. Tell the user: _"Your vault hasn't been indexed. Run `notebrain ingest` first, then ask me again."_
 - If `stats` succeeds with chunk counts > 0, proceed normally.
 
@@ -93,7 +93,6 @@ Only when the task specifically requires exploring graph topology, backlinks, or
 | "Find notes with tag X"                                | `tags`        | `notebrain tags "#Tag" --format json`                                                  |
 | "Find notes with tag X and its child tags"             | `tags`        | `notebrain tags "#Tag" --children --format json`                                       |
 | "What notes share tags with X?"                        | `tags`        | `notebrain tags "<slug>" --shared --min-shared 1 --format json`                        |
-| "Diagnose issues with NoteBrain or its environment"    | `doctor`      | `notebrain doctor`                                                                     |
 
 > **Need detailed flag descriptions or output schemas?** Read [references/flags.md](references/flags.md) for full flag tables and [references/schema.md](references/schema.md) for JSON envelope fields and TSV formatting.
 

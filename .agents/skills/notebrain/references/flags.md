@@ -52,27 +52,13 @@ These flags are available only on the commands listed.
 | `--boost F`     | Score multiplier for graph-connected results (e.g., `1.5` = 50% boost over base score). | `1.5`   |
 | `--with-pdf`    | Include PDF text extraction results in the search. Defaults to false (Markdown-only).   | `false` |
 
-### `ingest`
-
-| Flag                 | Purpose                                                                                 | Default |
-| -------------------- | --------------------------------------------------------------------------------------- | ------- |
-| `--workers N`        | Number of concurrent ingestion workers.                                                 | `4`     |
-| `--chunk-size N`     | Maximum runes per chunk fed to the parser.                                              | `800`   |
-| `--chunk-overlap N`  | Overlap runes between sub-chunks when a section is split.                               | `100`   |
-| `--min-chunk-words N`| Skip text chunks containing fewer than N words.                                         | `10`    |
-| `--respect-exclude`  | Respect Obsidian's `userIgnoreFilters` and `attachmentFolderPath` settings.              | `false` |
-| `--enable-pdf`       | Process and index PDF files in the vault using native text extraction (and auto-OCR).   | `false` |
-| `--llm-model MODEL`  | LLM model name for PDF markdown parsing (e.g., `openrouter/anthropic/claude-sonnet`).   | —       |
-
-> Note: OCR via Tesseract is auto-detected whenever `--enable-pdf` is true and `tesseract` is installed in `$PATH`. Attachment wikilinks are always automatically excluded from graph edges.
-
 ### `get`
 
 No command-specific flags. Takes a single positional argument: `<slug>` (note slug, title, or file path — auto-resolved).
 
 ## Global Flags (Available on Subcommands)
 
-These flags work on `search`, `backlinks`, `connections`, `hidden`, `tags`, `boosted`, `get`, `stats`, and `ingest`.
+These flags work on `search`, `backlinks`, `connections`, `hidden`, `tags`, `boosted`, `get`, and `stats`.
 
 ### Output Format & Extraction
 

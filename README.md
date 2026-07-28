@@ -81,8 +81,8 @@ _(This interactive wizard configures your vault path, PDF, and OCR settings)._
 ```bash
 notebrain ingest
 
-# To also index PDFs, an LLM model and API key are required:
-# OPENROUTER_API_KEY="sk-or-..." notebrain ingest --enable-pdf --llm-model "deepseek/deepseek-v4-flash"
+# To also index PDFs, an LLM model and API key (DEEPSEEK_API_KEY, OPENROUTER_API_KEY, etc.) are required:
+# OPENROUTER_API_KEY="sk-or-..." notebrain ingest --enable-pdf --llm-model "tencent/hy3"
 ```
 
 > _Note: First-time indexing may take several minutes depending on your vault size and PDF count._
