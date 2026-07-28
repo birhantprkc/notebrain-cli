@@ -65,8 +65,8 @@ func TestProcessPdfFile(t *testing.T) {
 	}
 
 	chunk := res.ChunkRecords[0]
-	if chunk.FileType != "pdf" {
-		t.Errorf("expected FileType 'pdf', got %q", chunk.FileType)
+	if chunk.FileType != fileTypePDF {
+		t.Errorf("Expected FileType 'pdf', got %q", chunk.FileType)
 	}
 	if chunk.HeadingPath != "Dummy PDF Page" {
 		t.Errorf("expected HeadingPath 'Dummy PDF Page', got %q", chunk.HeadingPath)

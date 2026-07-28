@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -21,6 +22,11 @@ import (
 	"github.com/nmdra/notebrain-cli/v2/internal/parser"
 	"github.com/nmdra/notebrain-cli/v2/internal/pdfextract"
 	"github.com/nmdra/notebrain-cli/v2/internal/store"
+)
+
+const (
+	fileTypeMD  = "md"
+	fileTypePDF = "pdf"
 )
 
 // Embedder abstracts vector embedding so the pipeline can be tested with mocks.
@@ -97,10 +103,11 @@ func NewPipeline(s *store.Store, e Embedder, workers int) *Pipeline {
 // Run walks the vault directory, finds markdown files matching glob, and ingests
 // them into the store with structured logging for progress.
 func (p *Pipeline) Run(ctx context.Context, vaultPath string, glob string, _ io.Reader, _ io.Writer) error {
+	skipPDF := false
 	if p.EnablePDF {
 		if p.LLMModel == "" {
-			slog.Warn("PDF ingestion requires an LLM model, but none was provided. Disabling PDF support. (hint: use --llm-model)")
-			p.EnablePDF = false
+			slog.Warn("PDF ingestion requested via --enable-pdf, but no --llm-model was provided. Skipping PDF ingestion (previously ingested PDFs will be preserved). (hint: use --llm-model)")
+			skipPDF = true
 		} else {
 			slog.Info("initializing PDF extractor backend")
 			pb, err := pdfextract.NewPDFiumBackend()
@@ -112,27 +119,35 @@ func (p *Pipeline) Run(ctx context.Context, vaultPath string, glob string, _ io.
 
 			converter, err := llmparse.New(p.LLMModel, p.LLMContextWindow)
 			if err != nil {
-				return fmt.Errorf("LLM PDF parser: %w", err)
-			}
-			p.llmConverter = converter
-			slog.Info("LLM PDF parser enabled", "model", p.LLMModel, "backend", converter.Name())
-
-			// Auto-detect OCR support when PDF ingestion is enabled
-			ob := pdfextract.NewTesseractBackend("tesseract", "eng")
-			if ob.Available() {
-				if err := ob.ValidateLang(ctx); err != nil {
-					slog.Warn("tesseract found but language validation failed, skipping OCR", "err", err)
+				if errors.Is(err, llmparse.ErrNoAPIKey) {
+					slog.Warn("PDF ingestion enabled, but no valid API key found in environment. Skipping PDF ingestion (previously ingested PDFs will be preserved).", "err", err)
+					skipPDF = true
 				} else {
-					p.ocrBackend = ob
-					slog.Info("OCR backend auto-detected (tesseract)")
+					return fmt.Errorf("LLM PDF parser: %w", err)
 				}
-			} else {
-				slog.Debug("tesseract not found in PATH, OCR unavailable for scanned PDFs")
+			}
+
+			if !skipPDF {
+				p.llmConverter = converter
+				slog.Info("LLM PDF parser enabled", "model", p.LLMModel, "backend", converter.Name())
+
+				// Auto-detect OCR support when PDF ingestion is enabled
+				ob := pdfextract.NewTesseractBackend("tesseract", "eng")
+				if ob.Available() {
+					if err := ob.ValidateLang(ctx); err != nil {
+						slog.Warn("tesseract found but language validation failed, skipping OCR", "err", err)
+					} else {
+						p.ocrBackend = ob
+						slog.Info("OCR backend auto-detected (tesseract)")
+					}
+				} else {
+					slog.Debug("tesseract not found in PATH, OCR unavailable for scanned PDFs")
+				}
 			}
 		}
 	}
 
-	files, err := p.collectFiles(vaultPath, glob)
+	files, err := p.collectFiles(vaultPath, glob, skipPDF)
 	if err != nil {
 		return err
 	}
@@ -145,12 +160,17 @@ func (p *Pipeline) Run(ctx context.Context, vaultPath string, glob string, _ io.
 		return nil
 	}
 
-	hashes, err := p.store.GetNoteHashes(ctx)
+	hashes, err := p.store.GetNoteMetadata(ctx)
 	if err != nil {
 		slog.Warn("could not fetch existing note hashes, proceeding with full check", "err", err)
 	}
 	if hashes == nil {
-		hashes = make(map[string]string)
+		hashes = make(map[string]store.NoteMeta)
+	}
+
+	simpleHashes := make(map[string]string, len(hashes))
+	for k, v := range hashes {
+		simpleHashes[k] = v.Hash
 	}
 
 	// Identify notes that are in the database but no longer exist on disk
@@ -163,8 +183,11 @@ func (p *Pipeline) Run(ctx context.Context, vaultPath string, glob string, _ io.
 	}
 
 	staleSlugs := make([]string, 0, len(hashes))
-	for slug := range hashes {
+	for slug, meta := range hashes {
 		if _, ok := validSlugs[slug]; !ok {
+			if skipPDF && meta.FileType == fileTypePDF {
+				continue
+			}
 			staleSlugs = append(staleSlugs, slug)
 		}
 	}
@@ -215,7 +238,7 @@ fileLoop:
 				workerWg.Done()
 			}()
 
-			res, err := p.processFile(ctx, vaultPath, f, hashes)
+			res, err := p.processFile(ctx, vaultPath, f, simpleHashes)
 			if err != nil {
 				rel, _ := filepath.Rel(vaultPath, f)
 				p.recordFailedFile(rel, err.Error())
@@ -277,7 +300,7 @@ fileLoop:
 }
 
 // collectFiles walks the vault directory and returns all .md files matching glob.
-func (p *Pipeline) collectFiles(vaultPath, glob string) ([]string, error) {
+func (p *Pipeline) collectFiles(vaultPath, glob string, skipPDF bool) ([]string, error) {
 	var excluded []string
 	if p.RespectExclude {
 		excluded = LoadExcludedPaths(vaultPath)
@@ -312,7 +335,7 @@ func (p *Pipeline) collectFiles(vaultPath, glob string) ([]string, error) {
 			return nil
 		}
 		ext := strings.ToLower(filepath.Ext(path))
-		if ext == ".md" || (p.EnablePDF && ext == ".pdf") {
+		if ext == ".md" || (p.EnablePDF && !skipPDF && ext == ".pdf") {
 			if glob != "" {
 				matched, _ := filepath.Match(glob, rel)
 				if !matched {
@@ -428,7 +451,7 @@ func (p *Pipeline) processFile(ctx context.Context, vaultPath string, filePath s
 			HeadingPath:  c.HeadingPath,
 			HeadingLevel: c.Level,
 			HasTask:      c.HasTask,
-			FileType:     "md",
+			FileType:     fileTypeMD,
 			ModifiedMs:   modTime.UnixMilli(),
 			ContentHash:  hash,
 			Embedding:    emb,
@@ -623,7 +646,7 @@ func (p *Pipeline) processPdfFile(ctx context.Context, vaultPath string, filePat
 			HeadingPath:  c.HeadingPath,
 			HeadingLevel: c.Level,
 			HasTask:      c.HasTask,
-			FileType:     "pdf",
+			FileType:     fileTypePDF,
 			ModifiedMs:   modTime.UnixMilli(),
 			ContentHash:  hash,
 			Embedding:    emb,

@@ -290,6 +290,57 @@ func TestPipeline_CodeOnlyNoteIngest(t *testing.T) {
 	}
 }
 
+func TestPipeline_PDFFallbackPreservesPDFs(t *testing.T) {
+	ctx := context.Background()
+	dbDir := t.TempDir()
+	st, err := store.Open(ctx, dbDir)
+	if err != nil {
+		t.Fatalf("Failed to open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	vaultDir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(vaultDir, "doc.md"), []byte("MD Note"), 0644)
+
+	// Seed store with a PDF note
+	_ = st.UpsertChunks(ctx, []store.ChunkRecord{
+		{
+			ID:          "pdf-doc:0",
+			NoteSlug:    "pdf-doc",
+			Title:       "PDF Document",
+			FilePath:    "PDF Document.pdf",
+			ChunkIndex:  0,
+			ContentHash: "abcdef",
+			FileType:    fileTypePDF,
+			Embedding:   []float32{1.0, 0.0, 0.0},
+		},
+	})
+
+	p := NewPipeline(st, &mockEmbedder{}, 1)
+	p.EnablePDF = true
+	p.LLMModel = "" // Trigger fallback
+	p.MinChunkWords = 0
+
+	pr, pw := io.Pipe()
+	go func() { _ = pw.Close() }()
+	var stdout bytes.Buffer
+	if err := p.Run(ctx, vaultDir, "", pr, &stdout); err != nil {
+		t.Fatalf("Pipeline.Run failed: %v", err)
+	}
+
+	metas, err := st.GetNoteMetadata(ctx)
+	if err != nil {
+		t.Fatalf("Failed to get note metadata: %v", err)
+	}
+
+	if _, ok := metas["pdf-doc"]; !ok {
+		t.Errorf("Expected PDF note to be preserved during fallback, but it was deleted")
+	}
+	if _, ok := metas["doc"]; !ok {
+		t.Errorf("Expected MD note to be ingested")
+	}
+}
+
 func BenchmarkEstimateTokens(b *testing.B) {
 	text := strings.Repeat("This is a test sentence for token estimation in NoteBrain. ", 50)
 	b.ResetTimer()

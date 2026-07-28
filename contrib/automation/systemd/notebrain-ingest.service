@@ -6,6 +6,7 @@ After=network.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/notebrain ingest
+# ExecStart=/usr/local/bin/notebrain ingest --enable-pdf
 # Run with low CPU and I/O priority so background indexing never impacts interactive desktop performance
 Nice=19
 IOSchedulingClass=idle
