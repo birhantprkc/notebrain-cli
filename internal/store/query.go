@@ -301,23 +301,49 @@ func deduplicateResultsByNote(results []Result, limit int, topKPerNote int) []Re
 
 // ─── Metadata Queries ────────────────────────────────────────────
 
-// GetNoteHashes fetches the content_hash for all notes by reading chunk_index=0.
-// Returns a map of note_slug -> content_hash.
-func (s *Store) GetNoteHashes(ctx context.Context) (map[string]string, error) {
+// NoteMeta holds metadata for a note chunk, such as its content hash and original file type.
+type NoteMeta struct {
+	Hash     string
+	FileType string
+}
+
+// GetNoteMetadata fetches NoteMeta (content_hash and file_type) for all notes by reading chunk_index=0.
+// Returns a map of note_slug -> NoteMeta.
+func (s *Store) GetNoteMetadata(ctx context.Context) (map[string]NoteMeta, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	metas, err := s.paginatedZeroIndexMetadatas(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("get note hashes: %w", wrapChromaErr(err))
+		return nil, fmt.Errorf("get note metadata: %w", wrapChromaErr(err))
 	}
 
-	hashes := make(map[string]string)
+	hashes := make(map[string]NoteMeta)
 	for _, m := range metas {
 		slug := metaString(m, "note_slug")
 		hash := metaString(m, "content_hash")
+		fileType := metaString(m, "file_type")
 		if slug != "" && hash != "" {
-			hashes[slug] = hash
+			hashes[slug] = NoteMeta{
+				Hash:     hash,
+				FileType: fileType,
+			}
 		}
+	}
+	return hashes, nil
+}
+
+// GetNoteHashes fetches the content_hash for all notes by reading chunk_index=0.
+// Returns a map of note_slug -> content_hash.
+//
+// Deprecated: use GetNoteMetadata instead.
+func (s *Store) GetNoteHashes(ctx context.Context) (map[string]string, error) {
+	metaMap, err := s.GetNoteMetadata(ctx)
+	if err != nil {
+		return nil, err
+	}
+	hashes := make(map[string]string, len(metaMap))
+	for k, v := range metaMap {
+		hashes[k] = v.Hash
 	}
 	return hashes, nil
 }

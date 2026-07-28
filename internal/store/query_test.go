@@ -474,6 +474,41 @@ func TestGetNoteHashes(t *testing.T) {
 	}
 }
 
+func TestGetNoteMetadata(t *testing.T) {
+	ctx := context.Background()
+	st := newTestStore(t)
+
+	chunks := []store.ChunkRecord{
+		{
+			ID:          "note-meta-test:0",
+			NoteSlug:    "note-meta-test",
+			Title:       "Note Meta",
+			FilePath:    "Note Meta.pdf",
+			ChunkIndex:  0,
+			ContentHash: "abcdef123456",
+			FileType:    "pdf",
+			Embedding:   []float32{1.0, 0.0, 0.0},
+		},
+	}
+	_ = st.UpsertChunks(ctx, chunks)
+
+	metas, err := st.GetNoteMetadata(ctx)
+	if err != nil {
+		t.Fatalf("GetNoteMetadata failed: %v", err)
+	}
+
+	meta, ok := metas["note-meta-test"]
+	if !ok {
+		t.Fatalf("GetNoteMetadata missing expected slug")
+	}
+	if meta.Hash != "abcdef123456" {
+		t.Errorf("Expected hash 'abcdef123456', got %q", meta.Hash)
+	}
+	if meta.FileType != "pdf" {
+		t.Errorf("Expected file_type 'pdf', got %q", meta.FileType)
+	}
+}
+
 func TestTagSearch(t *testing.T) {
 	ctx := context.Background()
 	st := newTestStore(t)
