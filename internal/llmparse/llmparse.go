@@ -2,11 +2,15 @@ package llmparse
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"strings"
 )
+
+// ErrNoAPIKey is returned when no valid API key is found for LLM parsing.
+var ErrNoAPIKey = errors.New("no valid API key found")
 
 // API Endpoints
 const (
@@ -87,7 +91,7 @@ func New(model string, contextWindow int) (Converter, error) {
 	}
 
 	if selected == nil {
-		return nil, fmt.Errorf("no valid API key found for auto-detection (checked DEEPSEEK_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, OLLAMA_API_KEY/OLLAMA_HOST) for model %s", model)
+		return nil, fmt.Errorf("%w for auto-detection (checked DEEPSEEK_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, OLLAMA_API_KEY/OLLAMA_HOST) for model %s", ErrNoAPIKey, model)
 	}
 
 	actualModel := strings.TrimPrefix(model, "openrouter/")

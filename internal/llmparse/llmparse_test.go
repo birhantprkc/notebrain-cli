@@ -3,6 +3,7 @@ package llmparse
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,6 +19,8 @@ func TestNewAutoDetection(t *testing.T) {
 	_, err := New("some-model", 128000)
 	if err == nil {
 		t.Errorf("expected error when no API keys are set, got nil")
+	} else if !errors.Is(err, ErrNoAPIKey) {
+		t.Errorf("expected ErrNoAPIKey, got: %v", err)
 	}
 
 	// 2. OpenRouter set -> openrouter
