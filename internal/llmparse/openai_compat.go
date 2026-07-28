@@ -15,7 +15,7 @@ import (
 
 const (
 	reservedTokens = 8192
-	maxRetries     = 5
+	maxRetries     = 3
 	initialBackoff = 2 * time.Second
 )
 
