@@ -21,7 +21,13 @@ const (
 	EndpointOllama     = "http://localhost:11434/v1"
 )
 
-const backendOllama = "ollama"
+const (
+	backendDeepSeek   = "deepseek"
+	backendOpenRouter = "openrouter"
+	backendOpenAI     = "openai"
+	backendGemini     = "gemini"
+	backendOllama     = "ollama"
+)
 
 type BackendConfig struct {
 	Name    string
@@ -31,9 +37,9 @@ type BackendConfig struct {
 }
 
 var supportedBackends = []BackendConfig{
-	{Name: "deepseek", BaseURL: EndpointDeepSeek, EnvKey: "DEEPSEEK_API_KEY"},
+	{Name: backendDeepSeek, BaseURL: EndpointDeepSeek, EnvKey: "DEEPSEEK_API_KEY"},
 	{
-		Name:    "openrouter",
+		Name:    backendOpenRouter,
 		BaseURL: EndpointOpenRouter,
 		EnvKey:  "OPENROUTER_API_KEY",
 		Headers: map[string]string{
@@ -41,8 +47,8 @@ var supportedBackends = []BackendConfig{
 			"X-Title":      "NoteBrain CLI",
 		},
 	},
-	{Name: "openai", BaseURL: EndpointOpenAI, EnvKey: "OPENAI_API_KEY"},
-	{Name: "gemini", BaseURL: EndpointGemini, EnvKey: "GEMINI_API_KEY"},
+	{Name: backendOpenAI, BaseURL: EndpointOpenAI, EnvKey: "OPENAI_API_KEY"},
+	{Name: backendGemini, BaseURL: EndpointGemini, EnvKey: "GEMINI_API_KEY"},
 	{Name: backendOllama, BaseURL: EndpointOllama, EnvKey: "OLLAMA_API_KEY"},
 }
 
@@ -125,7 +131,7 @@ func New(model string, contextWindow int, opts ...Option) (Converter, error) {
 		return nil, fmt.Errorf("%w for auto-detection (checked DEEPSEEK_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, OLLAMA_API_KEY/OLLAMA_HOST) for model %s", ErrNoAPIKey, model)
 	}
 
-	actualModel := strings.TrimPrefix(model, "openrouter/")
+	actualModel := strings.TrimPrefix(model, backendOpenRouter+"/")
 
 	slog.Info("using LLM backend", "backend", selected.Name, "model", actualModel)
 	return newOpenAICompatConverter(baseURL, apiKey, actualModel, selected.Name, contextWindow, selected.Headers), nil
