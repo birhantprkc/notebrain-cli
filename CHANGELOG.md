@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.10.0] - 2026-07-29
+
+### Added
+- **PDF Ingestion Graceful Fallback**: Implemented automatic fallback when `--enable-pdf` is set but LLM API keys are missing, preserving existing indexed PDFs in ChromaDB without crashing (`feat(ingest)`).
+- **Store Note Metadata API**: Introduced `GetNoteMetadata` returning `NoteMeta` struct (file type + content hash) to preserve note metadata and deprecated `GetNoteHashes` (`feat(store)`).
+- **Ingestion Progress & Context Window**: Added `--context-window` CLI flag, structured per-file progress logging, and ingestion failure reporting (`feat(ingest)`).
+- **LLM Backend Detection & Retry Backoff**: Refactored backend auto-detection supporting OpenRouter, DeepSeek, OpenAI, Gemini, and Ollama with exponential retry backoff (`feat(llmparse)`).
+- **PDF Ingestion Guide**: Added comprehensive Wiki guide covering PDF ingestion configuration, LLM backend setup, and graceful fallbacks (`docs(wiki)`).
+
+### Changed
+- **LLM Parser Architecture & Ollama Path**: Reused `http.Client` instances across retries/chunks, modularized chunk conversion methods, and normalized Ollama host `/v1` endpoint path handling (`refactor(llmparse)`).
+
+### Fixed
+- **Stale Subfolder Wikilinks & PDF Graph Display**: Fixed subfolder PDF fallback target lookup in `processOutgoingLinks` and surfaced `file_type` in graph query outputs for proper `📄 [PDF]` prefix rendering (`fix(store)`).
+- **API Max Retries**: Reduced maximum LLM API retry attempts from 5 to 3 (`fix(llmparse)`).
+
 ## [v2.9.0] - 2026-07-27
 
 ### Added
