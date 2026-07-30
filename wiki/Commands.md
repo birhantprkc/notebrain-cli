@@ -1,6 +1,6 @@
 # Commands Reference
 
-NoteBrain provides a variety of commands to ingest, query, and analyze your Obsidian vault.
+NoteBrain has commands to ingest, query, and analyze your Obsidian vault.
 
 ```text
 Usage: notebrain <command> [flags]
@@ -16,64 +16,64 @@ automation workflows.
 
 ## Global Flags
 
-These flags can be applied to `notebrain` before any subcommand (e.g., `notebrain --verbose search "query"`) or defined in your configuration file.
+You can apply these flags to `notebrain` before a subcommand (for example, `notebrain --verbose search "query"`). You can also put them in your configuration file.
 
 | Flag                | Type      | Default                           | Description                                                                                                  |
 | :------------------ | :-------- | :-------------------------------- | :----------------------------------------------------------------------------------------------------------- |
-| `--config`          | `string`  | `~/.notebrain/config/config.toml` | Path to the TOML config file.                                                                                |
-| `--chroma-path`     | `string`  | `~/.notebrain/chroma`             | Path to ChromaDB persistent storage. Can also be set via the `$CHROMA_PATH` environment variable.            |
-| `--vault-path`      | `string`  | _(None)_                          | **Required.** Absolute path to your Obsidian vault.                                                          |
-| `--vault-name`      | `string`  | _(Basename of vault)_             | Obsidian vault name (used for generating `obsidian://` URI links).                                           |
-| `--debug`           | `boolean` | `false`                           | Enable debug-level logging output to stderr.                                                                 |
-| `--format`          | `string`  | `text`                            | Output format: `text` (standard text), `json` (pretty structured JSON), or `tsv` (Tab-Separated Values).     |
-| `--jsonpath`        | `string`  | _(None)_                          | JSONPath expression to extract and filter specific fields from JSON output (e.g., `$.results[0].note_slug`). |
-| `--include-text`    | `boolean` | `false`                           | Include matched chunk text inside structured outputs (JSON, TSV).                                            |
-| `--context-window`  | `integer` | `0`                               | Fetch ±N adjacent chunks around each match for additional semantic context.                                  |
-| `--min-score`       | `float`   | `0.0`                             | Suppress search results below this similarity score (0.0 to 1.0).                                            |
-| `--respect-exclude` | `boolean` | `false`                           | Respect Obsidian user ignore filters and attachment folder exclusions during ingestion.                      |
-| `--show-tags`       | `boolean` | `false`                           | Include tag names (`#Tag/Subtag`) in search and graph outputs.                                               |
-| `--show-file-path`  | `boolean` | `true`                            | Include `file_path` in outputs (`--show-file-path=false` to omit).                                           |
+| `--config`          | `string`  | `~/.notebrain/config/config.toml` | The path to the TOML configuration file.                                                                                |
+| `--chroma-path`     | `string`  | `~/.notebrain/chroma`             | The path to the persistent storage of ChromaDB. You can also use the `$CHROMA_PATH` environment variable.            |
+| `--vault-path`      | `string`  | _(None)_                          | **Required.** The absolute path to your Obsidian vault.                                                          |
+| `--vault-name`      | `string`  | _(Basename of vault)_             | The name of the Obsidian vault (to generate `obsidian://` URI links).                                           |
+| `--debug`           | `boolean` | `false`                           | Enables the debug-level log output to stderr.                                                                 |
+| `--format`          | `string`  | `text`                            | The output format: `text` (standard text), `json` (structured JSON), or `tsv` (tab-separated values).     |
+| `--jsonpath`        | `string`  | _(None)_                          | A JSONPath expression to extract and filter fields from the JSON output (for example, `$.results[0].note_slug`). |
+| `--include-text`    | `boolean` | `false`                           | Includes the text of the matched chunk inside structured outputs (`json`, `tsv`).             |
+| `--context-window`  | `integer` | `0`                               | Gets ±N adjacent chunks around each match to give more context.                                  |
+| `--min-score`       | `float`   | `0.0`                             | Does not show search results with a similarity score below this value (0.0 to 1.0).                                            |
+| `--respect-exclude` | `boolean` | `false`                           | Obeys the Obsidian user filters and attachment exclusions during ingestion.                      |
+| `--show-tags`       | `boolean` | `false`                           | Includes tag names (`#Tag/Subtag`) in the search and graph outputs.                                               |
+| `--show-file-path`  | `boolean` | `true`                            | Includes `file_path` in outputs. You can use `--show-file-path=false` to omit it.                                           |
+| `--version`         | `boolean` | `false`                           | Shows version information.                                                                                    |
 
-> **Note on Hyperlinks**: Clickable OSC 8 terminal links are enabled automatically on supported terminal emulators (Ghostty, WezTerm, Kitty, iTerm2, etc.). To disable hyperlinks across all commands, set environment variable `NO_HYPERLINKS=1`.
+> Note: Supported terminal emulators (for example, Ghostty, WezTerm, Kitty, and iTerm2) automatically enable clickable OSC 8 terminal links. You can set the `NO_HYPERLINKS=1` environment variable to disable hyperlinks for all commands.
 
-### Token Efficiency & Quiet Mode for AI Agents
+### Token Efficiency and Quiet Mode for AI Agents
 
-When executing NoteBrain queries inside AI agent workflows, automated pipelines, or background scripts, controlling token footprint and suppressing interactive formatting is essential:
+When you execute NoteBrain queries inside AI agent workflows, automated pipelines, or background scripts, you must control the token count. You must also hide interactive formatting.
 
-1. **Automatic Quiet Mode (`--quiet`)**:
-   Whenever a non-interactive machine format (`--format=json`, `tsv`, or `--jsonpath`) is specified, NoteBrain automatically activates quiet mode (`embedder.WithQuiet`). This suppresses background log output, ensuring stdout is 100% clean and uncorrupted for JSON parsers and AI agents.
-2. **Compact JSON Envelopes**:
-   By default, JSON output includes essential properties cleanly formatted. You can use `--show-file-path=false` to strip file paths and reduce token consumption for Large Language Models. Similarity scores (`score`) are rounded cleanly to 4 decimal places (`0.8520`), and query headers (`query`) are stripped of terminal decorations.
-3. **Non-Redundant Context Windows (`--context-window N`)**:
-   When `--context-window N` (e.g., `--context-window 1` or `2`) is passed alongside `--include-text`, NoteBrain fetches $\pm N$ adjacent chunks into the `context` array while specifically excluding the matched chunk (`text`) itself from the array (`PopulateContext`), eliminating duplicated text across `text` and `context`.
-   | `--version` | `boolean` | `false` | Show version information. |
+1. **Automatic quiet mode (`--quiet`)**:
+   If you specify a non-interactive machine format (`--format=json`, `tsv`, or `--jsonpath`), NoteBrain automatically activates the quiet mode (`embedder.WithQuiet`). This hides the background log output. As a result, stdout is clean and correct for JSON parsers and AI agents.
+2. **Compact JSON envelopes**:
+   By default, the JSON output includes the necessary properties in a clean format. You can use `--show-file-path=false` to remove file paths. This decreases the token consumption for Large Language Models. The similarity scores (`score`) round to 4 decimal places (`0.8520`). The query headers (`query`) do not have terminal decorations.
+3. **Non-redundant context windows (`--context-window N`)**:
+   If you pass `--context-window N` (for example, `--context-window 1` or `2`) with `--include-text`, NoteBrain gets ±N adjacent chunks into the `context` array. It does not include the matched chunk (`text`) in the array (`PopulateContext`). This prevents duplicated text across `text` and `context`.
 
 ---
 
 ### Context-Aware Empty Result Guidance
 
-When a search or graph command returns zero results in standard terminal `text` format (`--format=text`), NoteBrain displays actionable, tailored tips formatted in italicized amber (`hintStyle`) under the command header instead of generic `(no results)` text:
+When a search or graph command returns zero results in standard terminal `text` format (`--format=text`), NoteBrain does not show generic `(no results)` text. Instead, it shows helpful tips in italicized amber (`hintStyle`) under the command header:
 
-- **`backlinks`**: Suggests verifying whether other notes link to the target or re-indexing via `notebrain ingest`.
-- **`connections`**: Suggests increasing `--hops` or checking for valid Wikilinks.
-- **`hidden`**: Suggests trying `--include-linked` to include notes that may already be linked, or re-indexing if the note is too unique.
-- **`tags`**: Suggests checking note tags or lowering `--min-shared`.
-- **`search` / `boosted`**: Suggests broadening search terms, adjusting `--boost`, or running `notebrain ingest`.
+- **`backlinks`**: Tells you to see if other notes link to the target, or to run `notebrain ingest` again.
+- **`connections`**: Tells you to increase `--hops` or to make sure that the Wikilinks are correct.
+- **`hidden`**: Tells you to use `--include-linked` to include notes that can already have links. It also tells you to run the index again if the note is too unique.
+- **`tags`**: Tells you to check the note tags or to decrease `--min-shared`.
+- **`search` / `boosted`**: Tells you to use broader search terms, to change `--boost`, or to run `notebrain ingest`.
 
-> _Note: To ensure compatibility with automated scripts and AI agents, contextual hints only appear in standard `text` output and are strictly omitted from machine formats (`json`, `tsv`, `--jsonpath`)._
+> Note: Contextual hints show only in standard `text` output. To maintain compatibility with automated scripts and AI agents, machine formats (`json`, `tsv`, `--jsonpath`) omit these hints.
 
 ---
 
 ## Note Resolution (`<note>` argument)
 
-Commands targeting a specific note (`backlinks`, `connections`, `hidden`, `tags`, `boosted --seed=<note>`, `get`) accept any of the following formats for the `<note>` parameter:
+Commands that target a specific note (`backlinks`, `connections`, `hidden`, `tags`, `boosted --seed=<note>`, `get`) accept these formats for the `<note>` parameter:
 
-1. **Exact Note Slug**: The normalized stored identifier (e.g., `00fleeting-noteskubernetes-networking-toolsspiffe`).
-2. **Note Title**: Case-insensitive note title (e.g., `"SPIFFE"` or `"Rust Programming"`).
-3. **Filename**: Exact case-insensitive file name (e.g., `"SPIFFE.md"`).
-4. **Partial Path / Suffix**: End of the relative path inside your vault (e.g., `"tools/SPIFFE.md"`).
+1. **Exact note slug**: The normalized identifier in the database (for example, `00fleeting-noteskubernetes-networking-toolsspiffe`).
+2. **Note title**: The note title. This does not care about case (for example, `"SPIFFE"` or `"Rust Programming"`).
+3. **Filename**: The exact file name. This does not care about case (for example, `"SPIFFE.md"`).
+4. **Partial path or suffix**: The end of the relative path inside your vault (for example, `"tools/SPIFFE.md"`).
 
-If multiple notes in your vault share the exact same title or filename across different directories, NoteBrain will return an ambiguity error listing the exact candidate slugs so you can specify the exact path or slug.
+If multiple notes have the same title or filename in different directories, NoteBrain returns an ambiguity error. This error shows a list of the candidate slugs. You must then supply the exact path or slug.
 
 ---
 
@@ -81,7 +81,7 @@ If multiple notes in your vault share the exact same title or filename across di
 
 ### `ingest`
 
-Indexes markdown files from your Obsidian vault, parses Wikilinks and tags, chunks the contents, and generates local vector embeddings.
+This command indexes markdown files from your Obsidian vault. It parses Wikilinks and tags. It divides the contents into chunks. Then it makes local vector embeddings.
 
 #### Usage
 
@@ -91,21 +91,21 @@ notebrain ingest [<glob>] [flags]
 
 #### Arguments
 
-- `[<glob>]` _(optional)_: Glob pattern targeting specific files/folders to ingest (e.g. `Projects/**`).
+- `[<glob>]` (optional): A glob pattern to specify files or folders to ingest (for example, `Projects/**`).
 
 #### Command-Specific Flags
 
 | Flag                | Type      | Default | Description                                                                             |
 | :------------------ | :-------- | :------ | :-------------------------------------------------------------------------------------- |
-| `--workers`         | `integer` | `4`     | Number of concurrent ingestion workers.                                                 |
-| `--min-chunk-words` | `integer` | `10`    | Skip chunks with fewer words than this.                                                 |
-| `--chunk-size`      | `integer` | `800`   | Maximum runes per chunk for the parser.                                                 |
-| `--chunk-overlap`   | `integer` | `100`   | Overlap runes between sub-chunks when a section is split.                               |
-| `--enable-pdf`          | `boolean` | `false`  | Enable PDF text extraction (and auto-OCR). Requires `--llm-model`.                      |
-| `--llm-model`           | `string`  | `""`     | LLM model to use for PDF parsing (e.g., `openrouter/inclusionai/ling-3.0-flash:free`). |
-| `--llm-context-window`  | `integer` | `128000` | Total context window size of the LLM in tokens.                                         |
+| `--workers`         | `integer` | `4`     | The number of concurrent ingestion workers.                                                 |
+| `--min-chunk-words` | `integer` | `10`    | Does not include chunks that have fewer words than this value.                                                 |
+| `--chunk-size`      | `integer` | `800`   | The maximum number of runes per chunk for the parser.                                                 |
+| `--chunk-overlap`   | `integer` | `100`   | The number of overlap runes between sub-chunks when the parser splits a section.                               |
+| `--enable-pdf`      | `boolean` | `false` | Enables the extraction of PDF text (and auto-OCR). This requires `--llm-model`.                      |
+| `--llm-model`       | `string`  | `""`    | The LLM model to parse PDFs (for example, `openrouter/inclusionai/ling-3.0-flash:free`). |
+| `--llm-context-window` | `integer` | `128000` | The total context window size of the LLM in tokens.                                         |
 
-> Note: OCR via Tesseract is auto-detected whenever `--enable-pdf` is active and `tesseract` is present in `$PATH`. Attachment links are automatically excluded from graph edges during indexing.
+> Note: If `--enable-pdf` is active and `tesseract` is in `$PATH`, the tool automatically detects OCR through Tesseract. During the index procedure, the tool excludes attachment links from the graph edges.
 
 #### Examples
 
@@ -124,7 +124,7 @@ notebrain ingest "Daily Notes/*.md" --vault-path "/path/to/vault"
 
 ### `search`
 
-Performs semantic vector search across all indexed chunks in your vault. Supports filtering by sections, tags, tasks, and code.
+This command does a semantic vector search across all the indexed chunks in your vault. You can filter the results by sections, tags, tasks, and code.
 
 #### Usage
 
@@ -134,19 +134,19 @@ notebrain search [<query>] [flags]
 
 #### Arguments
 
-- `[<query>]` _(optional)_: The semantic query string. Multiple query strings can be passed as positional arguments for multi-hit boosting. (Can be omitted if `--tag` is specified).
+- `[<query>]` (optional): The semantic query string. You can supply multiple query strings as positional arguments for multi-hit boosting. If you specify `--tag`, you can omit this argument.
 
 #### Command-Specific Flags
 
 | Flag          | Type      | Default  | Description                                                 |
 | :------------ | :-------- | :------- | :---------------------------------------------------------- |
-| `--limit`     | `integer` | `10`     | Maximum number of results to return.                        |
-| `--top-k`     | `integer` | `3`      | Maximum number of chunks to return per note.                |
-| `--section`   | `string`  | _(None)_ | Filter results by heading path.                             |
-| `--tag`       | `string`  | _(None)_ | Filter results by tag name (prefixed `#` is optional).      |
-| `--has-tasks` | `boolean` | `false`  | Only return chunks containing markdown task lists (`- [ ]`).|
-| `--has-code`  | `boolean` | `false`  | Only return chunks containing code blocks.                  |
-| `--with-pdf`  | `boolean` | `false`  | Include PDF results in search (default is Markdown-only). |
+| `--limit`     | `integer` | `10`     | The maximum number of results to show.                        |
+| `--top-k`     | `integer` | `3`      | The maximum number of chunks to show for each note.                |
+| `--section`   | `string`  | _(None)_ | Filters the results by the heading path.                             |
+| `--tag`       | `string`  | _(None)_ | Filters the results by the tag name (the `#` prefix is optional).      |
+| `--has-tasks` | `boolean` | `false`  | Shows only the chunks that contain markdown task lists (`- [ ]`).|
+| `--has-code`  | `boolean` | `false`  | Shows only the chunks that contain code blocks.                  |
+| `--with-pdf`  | `boolean` | `false`  | Includes the PDF results in the search (the default is markdown only). |
 
 #### Examples
 
@@ -164,21 +164,21 @@ notebrain search "message brokers" "redis queue"
 notebrain search "redis streams" --show-tags
 ```
 
-#### How Multi-Query Matching & Ranking Works
+#### How Multi-Query Matching and Ranking Works
 
-When multiple query positional arguments are provided (`notebrain search "arg1" "arg2"`):
+When you supply multiple query positional arguments (`notebrain search "arg1" "arg2"`):
 
-1. **Semantic Vector Matching**: NoteBrain embeds each query independently into a 384-dimensional vector using `MiniLM-L6-v2`. Matching is based **100% on semantic vector similarity** (cosine distance in ChromaDB), not exact keyword or substring matching. A note can match a query even if it uses completely different terminology or synonyms.
-2. **Multi-Hit Boosting**: When a note chunk is semantically relevant to multiple queries in your search, NoteBrain boosts its rank! Results are sorted using a two-tier strategy:
-   - **Primary Sort**: Descending order by the number of matched query topics (`len(MatchedQueries)`). Chunks bridging multiple concepts (e.g., matching both `"message brokers"` and `"redis queue"`) appear at the top.
-   - **Secondary Sort**: Descending order by maximum cosine similarity score within each match-count tier.
-3. **Hit Attribution**: In terminal text mode, multi-hit chunks display attribution tags indicating which query vectors retrieved them (e.g., `[hits: "message brokers", "redis queue"]`). In structured JSON outputs, each item includes a `matched_queries` array.
+1. **Semantic vector matching**: NoteBrain puts each query independently into a 384-dimensional vector with `MiniLM-L6-v2`. The matching depends entirely on the semantic vector similarity (cosine distance in ChromaDB). It does not use exact keyword or substring matching. A note can match a query when it uses different words or synonyms.
+2. **Multi-hit boosting**: If a note chunk matches multiple queries in your search, NoteBrain increases its rank. The tool sorts the results with a two-tier strategy:
+   - **Primary sort**: Descending order by the number of matched query topics (`len(MatchedQueries)`). Chunks that connect multiple concepts (for example, chunks that match `"message brokers"` and `"redis queue"`) show at the top.
+   - **Secondary sort**: Descending order by the maximum cosine similarity score in each match-count tier.
+3. **Hit attribution**: In the terminal text mode, multi-hit chunks show attribution tags. These tags tell you which query vectors found them (for example, `[hits: "message brokers", "redis queue"]`). In structured JSON outputs, each item has a `matched_queries` array.
 
 ---
 
 ### `get`
 
-Reconstructs and displays the complete markdown text of a note by joining all of its indexed chunks. To ensure structural continuity and human readability, each chunk is automatically prepended with its dynamic Markdown section heading derived from its `heading_path` metadata (`### Section Heading\n\n<text>`).
+This command builds and shows the complete markdown text of a note. It joins all the indexed chunks of the note. To make the text clear and easy to read, the tool automatically puts a dynamic markdown section heading before each chunk. It gets this heading from the `heading_path` metadata (`### Section Heading\n\n<text>`).
 
 #### Usage
 
@@ -188,7 +188,7 @@ notebrain get <slug> [flags]
 
 #### Arguments
 
-- `<slug>` _(required)_: Note slug (e.g. `kubernetes-native-applications`) or vault file path.
+- `<slug>` (required): The note slug (for example, `kubernetes-native-applications`) or the vault file path.
 
 #### Examples
 
@@ -204,7 +204,7 @@ notebrain get "kubernetes-native-applications" --format json
 
 ### `backlinks`
 
-Finds all notes linking to the target note using the local Wikilink graph. Link target resolution is fully canonicalized (`#anchor` headings stripped, subfolders resolved accurately against canonical paths), ensuring robust discovery even across deeply nested vault hierarchies.
+This command finds all the notes that link to the target note. It uses the local Wikilink graph. The link target resolution is fully canonicalized. This means that the tool removes `#anchor` headings and resolves subfolders against canonical paths. This makes sure that the tool finds connections across deeply nested vault hierarchies.
 
 #### Usage
 
@@ -214,7 +214,7 @@ notebrain backlinks <note> [flags]
 
 #### Arguments
 
-- `<note>` _(required)_: The target note slug or title.
+- `<note>` (required): The target note slug or title.
 
 #### Examples
 
@@ -227,7 +227,7 @@ notebrain backlinks "Redis"
 
 ### `connections`
 
-Performs breadth-first traversal of the Wikilink graph to find connected notes up to a specified number of hops.
+This command does a breadth-first traversal of the Wikilink graph. It finds connected notes up to a specified number of hops.
 
 #### Usage
 
@@ -237,13 +237,13 @@ notebrain connections <note> [flags]
 
 #### Arguments
 
-- `<note>` _(required)_: The starting note slug or title.
+- `<note>` (required): The starting note slug or title.
 
 #### Command-Specific Flags
 
 | Flag     | Type      | Default | Description                               |
 | :------- | :-------- | :------ | :---------------------------------------- |
-| `--hops` | `integer` | `2`     | Maximum number of graph hops to traverse. |
+| `--hops` | `integer` | `2`     | The maximum number of graph hops to traverse. |
 
 #### Examples
 
@@ -256,7 +256,7 @@ notebrain connections "Redis" --hops 2
 
 ### `hidden`
 
-Discovers "hidden" semantic connections: notes that are semantically similar but do not have direct Wikilinks in Obsidian. Supports granular `--deep` chunk-by-chunk analysis to identify exact matching sections between notes without requiring whole-note embedding comparisons.
+This command finds hidden semantic connections. These are notes that are semantically similar, but do not have direct Wikilinks in Obsidian. You can use the `--deep` flag for a chunk-by-chunk analysis. This analysis finds exact matching sections between notes. It does not require whole-note embedding comparisons.
 
 #### Usage
 
@@ -266,16 +266,16 @@ notebrain hidden <note> [flags]
 
 #### Arguments
 
-- `<note>` _(required)_: The target note title, filename, or slug (e.g., `"SPIFFE"` or `"Rust Programming"`).
+- `<note>` (required): The target note title, filename, or slug (for example, `"SPIFFE"` or `"Rust Programming"`).
 
 #### Command-Specific Flags
 
 | Flag               | Type      | Default | Description                                                                                                                          |
 | :----------------- | :-------- | :------ | :----------------------------------------------------------------------------------------------------------------------------------- |
-| `--deep`           | `boolean` | `false` | Perform granular chunk-by-chunk analysis across individual note sections using stored vectors.                                       |
-| `--include-linked` | `boolean` | `false` | Include notes that are already linked directly/indirectly in the hidden connections output while strictly excluding self-references. |
-| `--top-k`          | `integer` | `3`     | Maximum matching target sections to evaluate and display per candidate note (in `--deep` mode).                                      |
-| `--limit`          | `integer` | `10`    | Maximum number of hidden connections to return.                                                                                      |
+| `--deep`           | `boolean` | `false` | Does a chunk-by-chunk analysis across individual note sections with the stored vectors.                                       |
+| `--include-linked` | `boolean` | `false` | Includes notes that already have direct or indirect links in the hidden connections output. This strictly excludes self-references. |
+| `--top-k`          | `integer` | `3`     | The maximum number of matching target sections to evaluate and show for each candidate note (in `--deep` mode).                                      |
+| `--limit`          | `integer` | `10`    | The maximum number of hidden connections to show.                                                                                      |
 
 #### Examples
 
@@ -291,7 +291,7 @@ notebrain hidden "SPIFFE" --deep --limit 3
 
 ### `tags`
 
-Finds notes by tag name (default), or finds notes sharing tags with a given note (when using `--shared`).
+This command finds notes by the tag name (the default). If you use `--shared`, it finds notes that share tags with a given note.
 
 #### Usage
 
@@ -301,15 +301,15 @@ notebrain tags <query> [flags]
 
 #### Arguments
 
-- `<query>` _(required)_: The tag name to search for (e.g. `#kubernetes` or `kubernetes`), or a note slug/title if `--shared` is used.
+- `<query>` (required): The tag name to search for (for example, `#kubernetes` or `kubernetes`). If you use `--shared`, supply a note slug or title.
 
 #### Command-Specific Flags
 
 | Flag           | Type      | Default | Description                                                                                               |
 | :------------- | :-------- | :------ | :-------------------------------------------------------------------------------------------------------- |
-| `--shared`     | `boolean` | `false` | Treat the query as a note slug/title to find other notes sharing its tags.                                |
-| `--children`   | `boolean` | `false` | Include child tags in hierarchical structure (e.g. searching 'kubernetes' also matches 'kubernetes/cka'). |
-| `--min-shared` | `integer` | `1`     | Minimum number of shared tags to include a result (only applies when --shared is active).                 |
+| `--shared`     | `boolean` | `false` | Uses the query as a note slug or title to find other notes that share its tags.                                |
+| `--children`   | `boolean` | `false` | Includes child tags in the hierarchical structure (for example, a search for 'kubernetes' also finds 'kubernetes/cka'). |
+| `--min-shared` | `integer` | `1`     | The minimum number of shared tags necessary to show a result (only when `--shared` is active).                 |
 
 #### Examples
 
@@ -328,7 +328,7 @@ notebrain tags "redis-cluster" --shared --min-shared 2
 
 ### `boosted`
 
-Graph-boosted semantic search. Combines semantic vector similarity with Wikilink graph distance from a seed note, boosting similarity scores for notes structurally connected to the seed.
+This command does a graph-boosted semantic search. It combines the semantic vector similarity with the Wikilink graph distance from a seed note. This increases the similarity scores for notes that are structurally connected to the seed.
 
 #### Usage
 
@@ -338,16 +338,16 @@ notebrain boosted <query> --seed=STRING [flags]
 
 #### Arguments
 
-- `<query>` _(required)_: Search query.
+- `<query>` (required): The search query.
 
 #### Command-Specific Flags
 
 | Flag      | Type      | Default  | Description                                                     |
 | :-------- | :-------- | :------- | :-------------------------------------------------------------- |
 | `--seed`  | `string`  | _(None)_ | **Required.** The origin note slug or title for graph boosting. |
-| `--boost` | `float`   | `1.5`    | Score multiplier for graph-connected results (e.g. 1.5 = 50% boost). |
-| `--limit` | `integer` | `10`     | Maximum number of results to return.                            |
-| `--with-pdf`| `boolean` | `false`  | Include PDF results in the search (default is markdown only).   |
+| `--boost` | `float`   | `1.5`    | The score multiplier for graph-connected results (for example, 1.5 = 50% boost). |
+| `--limit` | `integer` | `10`     | The maximum number of results to show.                            |
+| `--with-pdf`| `boolean` | `false`  | Includes the PDF results in the search (the default is markdown only).   |
 
 #### Examples
 
@@ -358,10 +358,9 @@ notebrain boosted "caching strategies" --seed "Redis" --boost 2.0 --limit 5
 
 ---
 
-
 ### `doctor`
 
-Runs a diagnostic health check on your environment to ensure NoteBrain is configured correctly and has access to necessary dependencies.
+This command runs a diagnostic health check on your environment. It makes sure that NoteBrain has the correct configuration and can access the necessary dependencies.
 
 #### Usage
 
@@ -373,7 +372,7 @@ notebrain doctor [flags]
 
 ### `init`
 
-Launches an interactive wizard to create or update your `config.toml` file. It will automatically populate your vault path and let you enable or disable PDF and OCR support.
+This command starts an interactive wizard to create or update your `config.toml` file. It automatically finds your vault path. It lets you enable or disable PDF and OCR support.
 
 #### Usage
 
@@ -385,7 +384,7 @@ notebrain init [flags]
 
 ### `stats`
 
-Displays statistics for your NoteBrain collection (total number of indexed chunks and links).
+This command shows statistics for your NoteBrain collection (the total number of indexed chunks and links).
 
 #### Usage
 
@@ -403,7 +402,7 @@ notebrain stats
 
 ### `reset`
 
-Drops all NoteBrain collections (`nb_chunks` and `nb_links`) and starts fresh. This operation is irreversible.
+This command drops all the NoteBrain collections (`nb_chunks` and `nb_links`) and starts fresh. You cannot reverse this operation.
 
 #### Usage
 
@@ -411,7 +410,7 @@ Drops all NoteBrain collections (`nb_chunks` and `nb_links`) and starts fresh. T
 notebrain reset [flags]
 ```
 
-_Note: For automated scripts, you can bypass the interactive confirmation prompt by piping `yes`:_
+> Note: For automated scripts, you can pipe `yes` to skip the interactive confirmation prompt:
 
 ```bash
 echo yes | notebrain reset
@@ -421,7 +420,7 @@ echo yes | notebrain reset
 
 ### `version`
 
-Prints version information, including build commit hash and compile date.
+This command prints version information. This information includes the build commit hash and the compile date.
 
 #### Usage
 
@@ -431,9 +430,9 @@ notebrain version [flags]
 
 ---
 
-## ⚙️ Configuration File
+## Configuration File
 
-Any global flag can be persistently configured in `~/.notebrain/config/config.toml` (or custom path passed to `--config`). Keys in the config file support interchangeable `kebab-case` and `snake_case` styles.
+You can persistently set any global flag in `~/.notebrain/config/config.toml` (or a custom path that you give to `--config`). Keys in the configuration file support interchangeable `kebab-case` and `snake_case` styles.
 
 ```toml
 # ~/.notebrain/config/config.toml
@@ -447,9 +446,9 @@ show-tags = false
 
 ---
 
-## Machine-Readable Output & AI Chain Automation
+## Machine-Readable Output and AI Chain Automation
 
-Using output formats like JSON and extracting fields via `--jsonpath` allows easy piping to shell tools and AI agents:
+You can use output formats like JSON and extract fields with `--jsonpath`. This lets you easily pipe the output to shell tools and AI agents:
 
 ```bash
 # Extract the slug of the top result

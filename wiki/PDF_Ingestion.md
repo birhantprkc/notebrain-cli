@@ -1,15 +1,15 @@
 # PDF Ingestion with LLMs
 
-NoteBrain supports indexing your PDF attachments using Large Language Models (LLMs) to accurately parse text and structural metadata. Combined with OCR (via Tesseract), this unlocks deep semantic search across all your scanned documents, research papers, and ebooks.
+NoteBrain indexes your PDF attachments with Large Language Models (LLMs). The LLMs parse text and structural metadata. When you combine this with Optical Character Recognition (via Tesseract), you can do semantic searches on your scanned documents, research papers, and ebooks.
 
 ## Requirements
 
 1. **LLM API Key**
-2. **`tesseract` (Optional but Recommended)** for Optical Character Recognition of scanned PDFs.
+2. **`tesseract`** (optional, to do Optical Character Recognition on scanned PDFs).
 
 ## Supported LLM Providers
 
-NoteBrain automatically detects the provider based on the model prefix or available API keys in your environment.
+NoteBrain detects the provider automatically. It uses the model prefix or the available API keys in your environment.
 
 | Provider           | Environment Variable | Model Syntax Example                  |
 | :----------------- | :------------------- | :------------------------------------ |
@@ -21,7 +21,7 @@ NoteBrain automatically detects the provider based on the model prefix or availa
 
 ## How to Enable
 
-To index PDFs during an ingestion run, supply the `--enable-pdf` and `--llm-model` flags:
+To index PDFs during an ingestion run, provide the `--enable-pdf` and `--llm-model` flags:
 
 ```bash
 export OPENROUTER_API_KEY="your-key-here"
@@ -29,33 +29,33 @@ export OPENROUTER_API_KEY="your-key-here"
 notebrain ingest --enable-pdf --llm-model="tencent/hy3"
 ```
 
-You can also set these persistently via the CLI wizard:
+You can set these values permanently with the CLI wizard:
 
 ```bash
 notebrain config init
 ```
 
-Or in your `~/.notebrain/config.toml`:
+Alternatively, put them in your `~/.notebrain/config.toml`:
 
 ```toml
 enable_pdf = true
 llm_model = "tencent/hy3"
 ```
 
-## Graceful Fallbacks & Cost Control
+## Graceful Fallbacks and Cost Control
 
-If you run `notebrain ingest` with `--enable-pdf` but your API key is missing or unset in the current shell, NoteBrain will gracefully fallback:
+If you run `notebrain ingest` with `--enable-pdf` but your API key is missing, NoteBrain has a fallback process:
 
-- It will print a warning that PDF ingestion is disabled.
-- It will **skip** parsing new or updated PDFs.
-- It will **preserve** previously ingested PDFs in the ChromaDB index without deleting them.
-- It will safely continue ingesting all your standard Markdown (`.md`) files uninterrupted.
+- NoteBrain prints a warning that PDF ingestion is disabled.
+- NoteBrain skips new or updated PDFs.
+- NoteBrain keeps previously ingested PDFs in the ChromaDB index.
+- NoteBrain continues to ingest your standard Markdown (`.md`) files.
 
-This makes it perfectly safe to schedule regular ingestion runs in the background (e.g. via `cron`), without worrying about accidental PDF data loss if your environment variables aren't properly passed.
+Because of this, you can schedule regular ingestion runs in the background (for example, with `cron`). You do not lose PDF data if your environment variables are incorrect.
 
-## Searching PDFs
+## Search PDFs
 
-PDF search results are hidden by default to keep CLI outputs concise. To include PDF contents when searching your vault, use the `--with-pdf` flag:
+PDF search results do not show by default. To include PDF contents when you search your vault, use the `--with-pdf` flag:
 
 ```bash
 notebrain search "machine learning fundamentals" --with-pdf

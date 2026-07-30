@@ -1,8 +1,8 @@
 # NoteBrain CLI
 
-A Go CLI tool that turns your [Obsidian](https://obsidian.md/) vault into a fully offline knowledge backend for **AI coding agents**. NoteBrain indexes markdown notes (and connected PDFs) into a local **[ChromaDB](https://www.trychroma.com/)** vector database and exposes semantic search, wikilink graph traversal, and hidden connection discovery through structured output — designed to be chained directly by autonomous agents, shell pipelines, and LLM tool-use workflows.
+NoteBrain is a Go CLI tool. It makes your [Obsidian](https://obsidian.md/) vault a fully offline knowledge backend for AI coding agents. NoteBrain indexes markdown notes and PDFs into a local [ChromaDB](https://www.trychroma.com/) vector database. It provides semantic search, wikilink graph traversal, and hidden connection discovery. It gives structured output. AI agents, shell pipelines, and LLM tool workflows can use this output directly.
 
-Ships with an [AI agent skill](wiki/Skill_Usage.md) and [OpenCode Agent Configuration](wiki/OpenCode_Integration.md) for integration with autonomous coding agents like [OpenCode](https://opencode.ai), [Pi agent](https://pi.dev), and Claude Code. This setup is specially optimized to reduce token usage and latency.
+NoteBrain includes an [AI agent skill](wiki/Skill_Usage.md) and an [OpenCode Agent Configuration](wiki/OpenCode_Integration.md). You can use them to integrate with autonomous coding agents (for example, [OpenCode](https://opencode.ai), [Pi agent](https://pi.dev), and Claude Code). This setup decreases token usage and latency.
 
 <img src="https://github.com/egonelbre/gophers/blob/master/.thumb/animation/gopher-dance-long.gif?raw=true" alt="Gopher Dancing" width="30"/> [![Go Version](https://img.shields.io/github/go-mod/go-version/nmdra/notebrain-cli)](https://github.com/nmdra/notebrain-cli/blob/master/go.mod)
 [![Go Reference](https://pkg.go.dev/badge/github.com/nmdra/notebrain-cli.svg)](https://pkg.go.dev/github.com/nmdra/notebrain-cli/v2)
@@ -25,37 +25,38 @@ Ships with an [AI agent skill](wiki/Skill_Usage.md) and [OpenCode Agent Configur
 
 ## Features
 
-- **Semantic Search** — Find notes by meaning, not just keywords, using the offline `all-MiniLM-L6-v2` ONNX embedding model.
-- **Multi-Query Search** — Search with multiple independent queries to improve retrieval for complex topics and AI agent workflows.
-- **Knowledge Graph Traversal** — Explore your Obsidian wikilink graph through backlinks, multi-hop connections, and shared tag relationships.
-- **Hidden Connections** — Discover semantically related notes that aren't explicitly linked, with optional deep section-level analysis.
-- **Graph-Boosted Ranking** — Improve search relevance by combining semantic similarity with graph relationships.
-- **Advanced Filtering** — Refine results by sections, tags, code blocks, tasks, and other note metadata.
-- **Full Note Retrieval** — Reconstruct complete notes on demand from indexed content.
-- **Structured Output** — Export results as JSON or TSV, with built-in JSONPath querying for easy automation.
-- **AI Agent Integration** — Includes a built-in AI agent skill and dedicated for autonomous knowledge retrieval.
-- **Terminal Hyperlinks** — Open notes directly from supported terminals using OSC 8 hyperlinks.
-- **Obsidian-Aware Indexing** — Respects your Obsidian configuration, including ignored files, attachment folders, and optional exclusion of empty-note references.
-- **Optional PDF Support** — Extract and index text from PDFs, including scanned documents via an LLM API.
+- **Semantic Search**: Find notes by meaning with the offline `all-MiniLM-L6-v2` ONNX embedding model.
+- **Multi-Query Search**: Do a search with multiple independent queries. This gives better results for complex topics.
+- **Knowledge Graph Traversal**: Examine your Obsidian wikilink graph. Find backlinks, multi-hop connections, and shared tags.
+- **Hidden Connections**: Find notes that have a semantic relationship but no explicit links. You can use deep section-level analysis.
+- **Graph-Boosted Ranking**: Combine semantic similarity with graph relationships for better search results.
+- **Advanced Filtering**: Filter results by sections, tags, code blocks, tasks, and other metadata.
+- **Full Note Retrieval**: Get the complete note from the indexed content.
+- **Structured Output**: Export results as JSON or TSV. Use built-in JSONPath queries for automation.
+- **AI Agent Integration**: NoteBrain has a built-in AI agent skill for autonomous knowledge retrieval.
+- **Terminal Hyperlinks**: Use OSC 8 hyperlinks to open notes from supported terminals.
+- **Obsidian-Aware Indexing**: NoteBrain obeys your Obsidian configuration. It ignores excluded files and attachment folders.
+- **Optional PDF Support**: Get text from PDFs. NoteBrain uses an LLM API to read scanned documents.
 
-### Under the Hood
+### Internals
 
-- **PDF Support** — Extracts text from PDFs using **[PDFium-go](https://github.com/klippa-app/go-pdfium)** (and OCR via **Tesseract**) and converts the raw text into structured Markdown using an **LLM API (OpenRouter or DeepSeek)**. This guarantees high-quality chunking identical to native markdown notes.
-- **Goldmark AST-Aware Chunking** — Splits markdown by header hierarchy rather than arbitrary character offsets, strictly preserving lists, GFM tables, blockquotes/callouts, and code blocks.
-- **Embedded ChromaDB** — Stores vectors directly on disk via [`chroma-go`](https://github.com/amikos-tech/chroma-go).
-- **Incremental Ingestion** — SHA-256 content hashing skips unmodified notes in milliseconds on re-runs.
+- **PDF Support**: NoteBrain extracts text from PDFs with **[PDFium-go](https://github.com/klippa-app/go-pdfium)** and **Tesseract** (for OCR). It converts the raw text into structured Markdown with an LLM API (OpenRouter or DeepSeek). This makes high-quality chunks that match native markdown notes.
+- **Goldmark AST-Aware Chunking**: NoteBrain splits markdown by header hierarchy. It preserves lists, GFM tables, blockquotes, callouts, and code blocks.
+- **Embedded ChromaDB**: NoteBrain writes vectors to the disk with [`chroma-go`](https://github.com/amikos-tech/chroma-go).
+- **Incremental Ingestion**: NoteBrain calculates SHA-256 content hashes. It ignores unmodified notes in milliseconds during subsequent runs.
 
-> _See the [Architecture](wiki/Architecture.md) guide for more details._
+> _Read the [Architecture](wiki/Architecture.md) guide for more information._
 
 ## Prerequisites
 
 - **Go 1.26.4+** <img src="https://github.com/egonelbre/gophers/blob/master/.thumb/animation/gopher-dance-long.gif?raw=true" alt="Gopher Dancing" width="16"/>
-- **CGO-enabled toolchain**
-- Linux (macOS and Windows binaries are untested)
+- A CGO-enabled toolchain.
+- Linux. NoteBrain does not test macOS and Windows binaries.
 
 ## Installation
 
-Download a pre-built binary from the [GitHub Releases](https://github.com/nmdra/notebrain-cli/releases) page, or build from source:
+1. Download a pre-built binary from the [GitHub Releases](https://github.com/nmdra/notebrain-cli/releases) page.
+2. Or build the binary from the source code:
 
 ```bash
 git clone https://github.com/nmdra/notebrain-cli.git
@@ -64,7 +65,7 @@ make build          # CGO_ENABLED=1 go build -o notebrain .
 sudo mv notebrain /usr/local/bin/
 ```
 
-See the full [Installation Guide](wiki/Installation.md) for details.
+Read the [Installation Guide](wiki/Installation.md) for full instructions.
 
 ## Quick Start
 
@@ -74,18 +75,18 @@ See the full [Installation Guide](wiki/Installation.md) for details.
 notebrain init
 ```
 
-_(This interactive wizard configures your vault path, PDF, and OCR settings)._
+This command starts an interactive wizard. The wizard configures your vault path, PDF settings, and OCR settings.
 
 **2. Index your vault:**
 
 ```bash
 notebrain ingest
 
-# To also index PDFs, an LLM model and API key (DEEPSEEK_API_KEY, OPENROUTER_API_KEY, etc.) are required:
+# To index PDFs, you must provide an LLM model and an API key (DEEPSEEK_API_KEY, OPENROUTER_API_KEY, etc.):
 # OPENROUTER_API_KEY="sk-or-..." notebrain ingest --enable-pdf --llm-model "tencent/hy3"
 ```
 
-> _Note: First-time indexing may take several minutes depending on your vault size and PDF count._
+> Note: The first indexing operation takes several minutes. The time depends on your vault size and the quantity of PDFs.
 
 **3. Search your notes by meaning:**
 
@@ -101,7 +102,7 @@ notebrain search "message broker" --with-pdf
 
 **4. Discover deep hidden connections across note sections:**
 
-Find notes that share similar concepts without direct wikilinks, using `--deep` chunk-by-chunk section matching (`§ <Heading>`):
+Find notes that share concepts but have no direct wikilinks. Use `--deep` for chunk-by-chunk section matching (`§ <Heading>`):
 
 ```bash
 notebrain hidden "TLS" --deep
@@ -136,31 +137,30 @@ SLUG=$(notebrain search "message broker" --limit 1 --jsonpath="$.results[0].note
 notebrain get "$SLUG" --jsonpath="$.text"
 ```
 
-**7. Automate indexing** with a cron job or systemd timer so your index stays fresh (see [Scheduled Ingestion](wiki/Scheduled_Ingestion.md)).
+**7. Automate indexing:** Set a cron job or systemd timer to keep your index current. Read [Scheduled Ingestion](wiki/Scheduled_Ingestion.md).
 
-**8. Integration with AI Agents**
+**8. Integration with AI Agents:**
+Use the built-in [AI agent skill](wiki/Skill_Usage.md) and [OpenCode Agent Configuration](wiki/OpenCode_Integration.md) to retrieve knowledge.
 
-Use the built-in [AI agent skill](wiki/Skill_Usage.md) and [OpenCode Agent Configuration](wiki/OpenCode_Integration.md) for knowledge retrieval.
-
-> [!tip]
-> I highly recommend using the [Pi Agent](wiki/Pi_Agent.md) with the provided skill. It delivers higher-quality results, even with low cost models such as [DeepSeek V4 Flash](https://www.deepseek.com/) / [tencent hy3](https://hy.tencent.com/) / [Gemini Flash 3.6](https://ai.google.dev/gemini-api/docs/flash), without consuming unnecessary tokens. It also improves cache hit rates, helping reduce overall costs.
+> [!TIP]
+> Use the [Pi Agent](wiki/Pi_Agent.md) with the provided skill. The agent gives better results with low-cost models (for example, [DeepSeek V4 Flash](https://www.deepseek.com/), [tencent hy3](https://hy.tencent.com/), or [Gemini Flash 3.6](https://ai.google.dev/gemini-api/docs/flash)). It does not consume unnecessary tokens. It increases cache hit rates and decreases costs.
 >
-> For LLM models, use the **medium / low** thinking mode for fast responses.
+> For LLM models, use the medium or low thinking mode to get fast responses.
 
 [![asciicast](https://asciinema.org/a/1261133.svg)](https://asciinema.org/a/1261133)
 
 ## Configuration
 
-NoteBrain reads configuration from a TOML file at `~/.notebrain/config/config.toml` (or pass `--config=/path/to/config.toml`). CLI flags always override TOML values.
+NoteBrain uses a TOML file for configuration at `~/.notebrain/config/config.toml`. You can also supply `--config=/path/to/config.toml`. CLI flags always override TOML values.
 
-Copy the template to get started:
+To start, copy the template:
 
 ```bash
 mkdir -p ~/.notebrain/config
 cp config.example.toml ~/.notebrain/config/config.toml
 ```
 
-Key settings ([full reference](./config.example.toml)):
+Key configuration values (read the [full reference](./config.example.toml)):
 
 ```toml
 vault-path = "/path/to/Second-Brain"
@@ -174,30 +174,30 @@ show-tags       = false         # include tag names in output
 
 ### Data Location
 
-All persistent data is stored under `~/.notebrain/`:
+NoteBrain stores persistent data in `~/.notebrain/`:
 
 | Path                              | Contents                                                 |
 | --------------------------------- | -------------------------------------------------------- |
 | `~/.notebrain/chroma/`            | ChromaDB vector store (embeddings, metadata, link graph) |
 | `~/.notebrain/config/config.toml` | User configuration file                                  |
 
-To fully uninstall, remove the `notebrain` binary and delete `~/.notebrain/`.
+To uninstall NoteBrain completely, remove the `notebrain` binary and delete the `~/.notebrain/` directory.
 
 ## Documentation
 
-| Guide                                                      | Description                                                |
-| ---------------------------------------------------------- | ---------------------------------------------------------- |
-| [Installation](wiki/Installation.md)                       | Prerequisites, pre-built binaries, building from source    |
-| [Commands Reference](wiki/Commands.md)                     | Full CLI command and flag documentation                    |
-| [Architecture](wiki/Architecture.md)                       | Internals: chunking pipeline, embedding, ChromaDB schema   |
-| [Scheduled Ingestion](wiki/Scheduled_Ingestion.md)         | Cron and systemd timer setup for background indexing       |
-| [AI Agent Skill Usage](wiki/Skill_Usage.md)                | Using the built-in AI agent skill for autonomous retrieval |
-| [OpenCode Agent Integration](wiki/OpenCode_Integration.md) | Configuring NoteBrain as an OpenCode AI coding assistant   |
-| [DeepWiki](https://deepwiki.com/nmdra/notebrain-cli)       | AI-generated codebase documentation                        |
+| Guide                                                      | Description                                                              |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------ |
+| [Installation](wiki/Installation.md)                       | Prerequisites, pre-built binaries, and compilation commands              |
+| [Commands Reference](wiki/Commands.md)                     | Full CLI command and flag information                                    |
+| [Architecture](wiki/Architecture.md)                       | Internal functions: chunking pipeline, embeddings, and ChromaDB schema   |
+| [Scheduled Ingestion](wiki/Scheduled_Ingestion.md)         | Instructions for cron and systemd timers to index data in the background |
+| [AI Agent Skill Usage](wiki/Skill_Usage.md)                | Instructions for the built-in AI agent skill                             |
+| [OpenCode Agent Integration](wiki/OpenCode_Integration.md) | Configuration for NoteBrain as an OpenCode AI coding assistant           |
+| [DeepWiki](https://deepwiki.com/nmdra/notebrain-cli)       | AI-generated codebase documentation                                      |
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or pull request on [GitHub](https://github.com/nmdra/notebrain-cli).
+We welcome contributions. Open an issue or a pull request on [GitHub](https://github.com/nmdra/notebrain-cli).
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/), Go vendoring (`vendor/`), and pre-commit hooks via [Lefthook](https://github.com/evilmartians/lefthook).
 

@@ -1,41 +1,44 @@
 # AI Agent Skill Usage
 
-NoteBrain includes an optimized, built-in AI agent skill (`notebrain-assistant`) designed for AI coding assistants and autonomous agents (such as Google Antigravity / Opencode / Claude Code / Pi). This skill equips agents with seamless semantic search and knowledge graph traversal across your Obsidian vault.
+NoteBrain has a built-in AI agent skill: `notebrain-assistant`. This skill operates with AI coding assistants and autonomous agents (for example, Google Antigravity, Opencode, Claude Code, and Pi). The skill gives agents semantic search and knowledge graph traversal for your Obsidian vault.
 
-## Where the Skill Lives
+## Location of the Skill
 
-The skill instructions and evaluation workspace are located in the project root:
+The skill instructions and the evaluation workspace are in the project root:
 
 - **Skill Instructions**: `.agents/skills/notebrain/SKILL.md`
 
-When working inside this repository or importing this skill into your global AI configuration, AI agents automatically discover and follow these instructions whenever you ask questions about your personal notes or knowledge base.
+AI agents find and obey these instructions automatically when you ask about your notes. This occurs when you work inside this repository or import the skill into your AI configuration.
 
-## How it Works: Tiered Retrieval Workflow
+## Tiered Retrieval Workflow
 
-To prevent excessive token consumption and minimize latency, the `notebrain-assistant` skill strictly mandates a **Tiered Retrieval Workflow**:
+The `notebrain-assistant` skill mandates a tiered retrieval workflow. This workflow stops excessive token consumption and decreases latency.
 
-1. **Lean Initial Search & Automatic Quiet Mode**:
-   The agent always begins with a highly focused, non-interactive semantic query:
+1. **Lean Initial Search and Quiet Mode**:
+   The agent starts with a focused semantic query:
    ```bash
    notebrain search "<query>" --context-window 1 --top-k 2 --include-text --format json
    ```
-   Specifying `--format json` (or `tsv`/`--jsonpath`) automatically activates **quiet mode** (`embedder.WithQuiet`), suppressing the embedder loading spinner and background log output so the agent receives 100% clean, uncorrupted machine JSON. Furthermore, `--context-window N` fetches $\pm N$ adjacent chunks while excluding the matched chunk (`text`) itself from `context`, reducing token consumption.
+   The `--format json` flag automatically starts quiet mode (`embedder.WithQuiet`). Quiet mode removes the loading spinner and background log output. Then, the agent receives clean machine JSON. The `--context-window N` flag gets adjacent chunks but removes the matched chunk from the context. This decreases token consumption.
+   
 2. **Similarity Score Check**:
-   If the top result returns a similarity score of `score >= 0.75` (rounded to 4 decimal places, e.g. `0.8520`) and provides sufficient context to answer your prompt, the agent **stops immediately** without making additional CLI calls.
+   The agent stops immediately if the top result has a similarity score of `score >= 0.75` (for example, `0.8520`) and gives enough context to answer you.
+
 3. **Conditional Escalation**:
-   The agent only executes multi-step graph commands when explicitly needed:
-   - **Graph Traversal**: For questions about relationships or connections, it runs `notebrain connections "<slug>" --hops 2 --format tsv` (or `--jsonpath="$.results[*].note_slug"` without `--include-text`).
-   - **Backlinks**: For questions about what references a concept, it runs `notebrain backlinks "<slug>" --format tsv`.
-   - **Hidden Connections**: For discovering unlinked semantic bridges across your vault, it runs `notebrain hidden "<slug>" --context-window 1 --include-text --format json`.
+   The agent executes multi-step graph commands only when necessary:
+   - **Graph Traversal**: To find connections, the agent runs `notebrain connections "<slug>" --hops 2 --format tsv`.
+   - **Backlinks**: To find references to a concept, the agent runs `notebrain backlinks "<slug>" --format tsv`.
+   - **Hidden Connections**: To find unlinked semantic bridges, the agent runs `notebrain hidden "<slug>" --context-window 1 --include-text --format json`.
+
 4. **Session Caching**:
-   Within a single conversation session, the agent caches and reuses previous query results (`connections`, `backlinks`, `hidden`) rather than re-running identical CLI commands.
+   The agent caches previous query results (connections, backlinks, and hidden) in one conversation session. The agent does not execute identical CLI commands again.
 
 > [!TIP]
-> **Using NoteBrain with OpenCode?** Check out our dedicated [OpenCode Agent Integration Guide](OpenCode_Integration.md) to learn how to configure `notebrain-chat` with strict sandbox permissions and custom agent rules!
+> Do you use NoteBrain with OpenCode? Read the [OpenCode Agent Integration Guide](OpenCode_Integration.md). This guide explains how to configure `notebrain-chat` with strict sandbox permissions and custom agent rules.
 
 ## Example Prompts
 
-When pair programming with your AI assistant, try asking natural language questions like:
+When you pair program with an AI assistant, you can ask questions like:
 
 - _"What do my notes say about Kubernetes reconciliation loops? Summarize the main points."_
 - _"Find notes connected to or linking to database-engineering within 2 hops."_

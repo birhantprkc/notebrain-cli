@@ -1,15 +1,18 @@
 # Installation
 
 ## Prerequisites
+
 - Go 1.26.4 or higher.
-- `make` (optional, for building from source).
-- CGO enabled toolchain (GCC/Clang on Linux/macOS) since the embedded vector database requires C/C++ bindings.
+- `make` (optional, to build from source).
+- A CGO-enabled toolchain (GCC or Clang on Linux or macOS). The embedded vector database requires C and C++ bindings.
 
-## Installing via Pre-built Binaries (Recommended)
+## Install Pre-built Binaries (Recommended)
 
-You can download the pre-built Linux or macOS binaries from the [GitHub Releases](https://github.com/nmdra/notebrain-cli/releases) page. Extract the archive and place the `notebrain` binary in your `$PATH`.
+1. Download the pre-built Linux or macOS binaries from the [GitHub Releases](https://github.com/nmdra/notebrain-cli/releases) page.
+2. Extract the archive.
+3. Put the `notebrain` binary in your `$PATH`.
 
-## Building from Source
+## Build from Source
 
 1. Clone the repository:
    ```bash
@@ -17,30 +20,32 @@ You can download the pre-built Linux or macOS binaries from the [GitHub Releases
    cd notebrain-cli
    ```
 
-2. Build the binary using Make:
+2. Use Make to build the binary:
    ```bash
    make build
    ```
-   *Note: This will execute `CGO_ENABLED=1 go build -o notebrain .`*
+   Note: This command executes `CGO_ENABLED=1 go build -o notebrain .`
 
-3. Move the binary to a directory in your PATH:
+3. Move the binary to a directory in your `$PATH`:
    ```bash
    sudo mv notebrain /usr/local/bin/
    ```
 
 ## Configuration
 
-NoteBrain uses a TOML file for persistent configuration (defaults to `~/.notebrain/config/config.toml`).
+NoteBrain uses a TOML file for persistent configuration. The default location is `~/.notebrain/config/config.toml`.
 
-1. Create your configuration directory:
+1. Create the configuration directory:
    ```bash
    mkdir -p ~/.notebrain/config
    ```
+
 2. Copy the template from the repository:
    ```bash
    cp config.example.toml ~/.notebrain/config/config.toml
    ```
-3. Edit `~/.notebrain/config/config.toml` to set your vault path, database storage location, and default formatting:
+
+3. Edit `~/.notebrain/config/config.toml`. Set your vault path, the database storage location, and the default format:
    ```toml
    vault-path = "/path/to/your/Obsidian Vault"
    vault-name = "My Vault"
@@ -48,4 +53,4 @@ NoteBrain uses a TOML file for persistent configuration (defaults to `~/.notebra
    format = "text"
    ```
 
-By default, NoteBrain stores the local ChromaDB database at `~/.notebrain/chroma`. You can override any setting using command-line flags (e.g., `--chroma-path`, `--vault-path`, `--format`).
+By default, NoteBrain stores the local ChromaDB database at `~/.notebrain/chroma`. You can override any setting with command-line flags (for example, `--chroma-path`, `--vault-path`, `--format`).
