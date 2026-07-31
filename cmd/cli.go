@@ -143,7 +143,7 @@ Examples:
 }
 
 func setupLogger(logLevel string, debug bool) {
-	level := slog.LevelInfo
+	var level slog.Level
 
 	const (
 		levelDebug = "debug"
