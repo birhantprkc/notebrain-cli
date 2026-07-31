@@ -91,6 +91,7 @@ type CoreGlobals struct {
 	ContextWindow int     `name:"context-window" default:"0"`
 	MinScore      float64 `default:"0"`
 	Debug         bool    `name:"debug" default:"false"`
+	LogLevel      string  `name:"log-level" default:"info"`
 	SkipPhantom   bool    `name:"skip-phantom" default:"true"`
 	ShowTags      bool    `name:"show-tags" default:"false"`
 }
@@ -134,6 +135,32 @@ debug = true
 	}
 	if cli.Debug != true {
 		t.Errorf("Expected Debug true, got %v", cli.Debug)
+	}
+}
+
+func TestTOMLResolver_LogLevel(t *testing.T) {
+	tomlData := []byte(`
+log_level = "warn"
+`)
+
+	resolver, err := TOMLResolver(bytes.NewReader(tomlData))
+	if err != nil {
+		t.Fatalf("TOMLResolver failed: %v", err)
+	}
+
+	var cli CoreGlobals
+	parser, err := kong.New(&cli, kong.Resolvers(resolver))
+	if err != nil {
+		t.Fatalf("kong.New failed: %v", err)
+	}
+
+	_, err = parser.Parse([]string{})
+	if err != nil {
+		t.Fatalf("parser.Parse failed: %v", err)
+	}
+
+	if cli.LogLevel != "warn" {
+		t.Errorf("Expected LogLevel 'warn', got %q", cli.LogLevel)
 	}
 }
 

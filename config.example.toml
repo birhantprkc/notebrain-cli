@@ -20,7 +20,10 @@
 # Default CLI output formatting option ("text", "json", or "tsv").
 # format = "text" # default: "text"
 
-# Enable debug logging to stderr.
+# Logging severity level ("debug", "info", "warn", "error").
+# log-level = "info" # default: "info"
+
+# Legacy debug flag (alias for log-level = "debug").
 # debug = false # default: false
 
 # ------------------------------------------------------------------------------

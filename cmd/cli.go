@@ -28,7 +28,8 @@ type Globals struct {
 	VaultName    string           `name:"vault-name" help:"vault display name for Obsidian URI links (defaults to basename of --vault-path)"`
 	Format       string           `help:"output format: text, json, or tsv" enum:"text,json,tsv" default:"text"`
 	JSONPath     string           `name:"jsonpath" help:"extract fields using JSONPath (e.g. '$.results[*].note_slug')"`
-	Debug        bool             `help:"enable debug logging (sets log level to debug)" default:"false"`
+	LogLevel     string           `name:"log-level" help:"logging severity level: debug, info, warn, error" enum:"debug,info,warn,error" default:"info"`
+	Debug        bool             `help:"enable debug logging (legacy: alias for --log-level=debug)" default:"false"`
 	SkipPhantom  bool             `name:"skip-phantom" help:"exclude phantom (uncreated) notes from results" default:"true"`
 	ShowTags     bool             `name:"show-tags" help:"include tag names (#tag) in output" default:"false"`
 	ShowFilePath bool             `name:"show-file-path" help:"include file_path in output (use --show-file-path=false to hide)" default:"true"`
@@ -114,7 +115,7 @@ Examples:
 		kong.Vars{"version": versionStr},
 	)
 
-	setupLogger(cli.Debug)
+	setupLogger(cli.LogLevel, cli.Debug)
 
 	// Resolve vault display name for Obsidian URI generation.
 	// Priority: --vault-name flag / config > basename(vault-path)
@@ -141,10 +142,31 @@ Examples:
 	return nil
 }
 
-func setupLogger(debug bool) {
+func setupLogger(logLevel string, debug bool) {
 	level := slog.LevelInfo
+
+	const (
+		levelDebug = "debug"
+		levelInfo  = "info"
+		levelWarn  = "warn"
+		levelError = "error"
+	)
+
 	if debug {
 		level = slog.LevelDebug
+	} else {
+		switch strings.ToLower(logLevel) {
+		case levelDebug:
+			level = slog.LevelDebug
+		case levelInfo:
+			level = slog.LevelInfo
+		case levelWarn:
+			level = slog.LevelWarn
+		case levelError:
+			level = slog.LevelError
+		default:
+			level = slog.LevelInfo
+		}
 	}
 
 	opts := &slog.HandlerOptions{Level: level}
