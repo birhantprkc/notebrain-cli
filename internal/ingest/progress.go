@@ -17,9 +17,12 @@ type ProgressUpdate struct {
 	Current string
 }
 
-// RunProgress logs ingestion progress via structured debug slog events for every file.
+// RunProgress logs ingestion progress: a debug event per file (quiet at the
+// default info level) plus an info-level summary every 10 percent, so long
+// runs keep the user informed without per-file noise.
 func RunProgress(totalFiles int, progressCh <-chan ProgressUpdate) {
 	start := time.Now()
+	nextDecile := 10
 
 	for u := range progressCh {
 		percent := 0.0
@@ -32,6 +35,15 @@ func RunProgress(totalFiles int, progressCh <-chan ProgressUpdate) {
 			"percent", percent,
 			"current", u.Current,
 			"elapsed_ms", time.Since(start).Milliseconds())
+
+		if totalFiles > 0 && percent >= float64(nextDecile) && nextDecile <= 100 {
+			slog.Info("ingestion progress",
+				"processed", u.Done,
+				"total", totalFiles,
+				"percent", percent,
+				"elapsed_ms", time.Since(start).Milliseconds())
+			nextDecile += 10
+		}
 	}
 	slog.Info("ingestion completed",
 		"total_files", totalFiles,

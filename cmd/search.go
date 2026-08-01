@@ -24,6 +24,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -65,12 +66,12 @@ func resolveQueries(queries []string) []string {
 }
 
 func (c *SearchCmd) Run(globals *Globals) error {
-	if c.TopKPerNote >= 4 {
-		fmt.Fprintf(os.Stderr, "warning: --top-k >= 4 may exceed upstream ChromaDB embedded 1 MiB FFI limit on large notes\n")
-	}
 	resolved := resolveQueries(c.Queries)
 	if len(resolved) == 0 && c.Tag == "" {
 		return &UsageError{Err: fmt.Errorf("query or --tag is required")}
+	}
+	if c.TopKPerNote >= 4 {
+		fmt.Fprintf(os.Stderr, "warning: --top-k >= 4 may exceed upstream ChromaDB embedded 1 MiB FFI limit on large notes\n")
 	}
 	if len(resolved) > 1 {
 		globals.Queries = resolved
@@ -83,6 +84,7 @@ func (c *SearchCmd) Run(globals *Globals) error {
 	}
 	defer func() { _ = st.Close() }()
 
+	slog.Info("initializing embedding model")
 	emb, err := embedder.NewLocalEmbedder()
 	if err != nil {
 		return err

@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 
 	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
 
@@ -69,6 +70,7 @@ func (c *BoostedCmd) Run(globals *Globals) error {
 	}
 	defer func() { _ = emb.Close() }()
 
+	slog.Info("initializing embedding model")
 	qVec, err := emb.Embed(ctx, query)
 	if err != nil {
 		return err

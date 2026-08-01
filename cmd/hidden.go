@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/nmdra/notebrain-cli/v2/internal/embedder"
 	"github.com/nmdra/notebrain-cli/v2/internal/store"
@@ -83,6 +84,7 @@ func (c *HiddenCmd) Run(globals *Globals) error {
 	}
 	defer func() { _ = emb.Close() }()
 
+	slog.Info("initializing embedding model")
 	qVec, err := emb.Embed(ctx, targetNote) // Embed the note title as the search context
 	if err != nil {
 		return err
