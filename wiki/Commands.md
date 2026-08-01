@@ -18,20 +18,23 @@ automation workflows.
 
 You can apply these flags to `notebrain` before a subcommand (for example, `notebrain --debug search "query"`). You can also put them in your configuration file.
 
-| Flag               | Type      | Default                           | Description                                                                                                  |
-| :----------------- | :-------- | :-------------------------------- | :----------------------------------------------------------------------------------------------------------- |
-| `--config`         | `string`  | `~/.notebrain/config/config.toml` | The path to the TOML configuration file.                                                                                |
-| `--chroma-path`    | `string`  | `~/.notebrain/chroma`             | The path to the persistent storage of ChromaDB.                                                                             |
-| `--vault-path`     | `string`  | _(None)_                          | **Required.** The absolute path to your Obsidian vault.                                                          |
-| `--vault-name`     | `string`  | _(Basename of vault)_             | The name of the Obsidian vault (to generate `obsidian://` URI links).                                           |
-| `--log-level`      | `string`  | `info`                            | The logging severity level: `debug`, `info`, `warn`, or `error`.                                                |
-| `--debug`          | `boolean` | `false`                           | Enables the debug-level log output to stderr. This is a legacy alias for `--log-level=debug`.                    |
-| `--skip-phantom`   | `boolean` | `true`                            | Excludes phantom (uncreated) notes from the results. Use `--skip-phantom=false` to include them.                 |
-| `--format`         | `string`  | `text`                            | The output format: `text` (standard text), `json` (structured JSON), or `tsv` (tab-separated values).     |
-| `--jsonpath`       | `string`  | _(None)_                          | A JSONPath expression to extract and filter fields from the JSON output (for example, `$.results[0].note_slug`). |
-| `--show-tags`      | `boolean` | `false`                           | Includes tag names (`#Tag/Subtag`) in the search and graph outputs.                                               |
-| `--show-file-path` | `boolean` | `true`                            | Includes `file_path` in outputs. You can use `--show-file-path=false` to omit it.                                           |
-| `--version`        | `boolean` | `false`                           | Shows version information.                                                                                    |
+| Flag                | Type      | Default                           | Description                                                                                                  |
+| :------------------ | :-------- | :-------------------------------- | :----------------------------------------------------------------------------------------------------------- |
+| `--config`          | `string`  | `~/.notebrain/config/config.toml` | The path to the TOML configuration file.                                                                                |
+| `--chroma-path`     | `string`  | `~/.notebrain/chroma`             | The path to the persistent storage of ChromaDB.                                                                             |
+| `--vault-path`      | `string`  | _(None)_                          | **Required.** The absolute path to your Obsidian vault.                                                          |
+| `--vault-name`      | `string`  | _(Basename of vault)_             | The name of the Obsidian vault (to generate `obsidian://` URI links).                                           |
+| `--log-level`       | `string`  | `info`                            | The logging severity level: `debug`, `info`, `warn`, or `error`. You can set it with the `NOTEBRAIN_LOG_LEVEL` environment variable. Flag and config file values take precedence over the environment variable. |
+| `--debug`           | `boolean` | `false`                           | Enables the debug-level log output to stderr. This is a legacy alias for `--log-level=debug`.                    |
+| `--log-file`        | `string`  | _(None)_                          | Writes logs to this file (JSON) in addition to stderr. The file rotates on size. You can set it with the `NOTEBRAIN_LOG_FILE` environment variable. Flag and config file values take precedence over the environment variable. |
+| `--log-max-size-mb` | `integer` | `10`                              | The max size of each log file in MiB before rotation (`0` uses the default `10`).                                  |
+| `--log-max-backups` | `integer` | `5`                               | The number of rotated log file backups to keep (`0` uses the default `5`). Rotated files are named `<file>.1`, `<file>.2`, and so on. |
+| `--skip-phantom`    | `boolean` | `true`                            | Excludes phantom (uncreated) notes from the results. Use `--skip-phantom=false` to include them.                 |
+| `--format`          | `string`  | `text`                            | The output format: `text` (standard text), `json` (structured JSON), or `tsv` (tab-separated values).     |
+| `--jsonpath`        | `string`  | _(None)_                          | A JSONPath expression to extract and filter fields from the JSON output (for example, `$.results[0].note_slug`). |
+| `--show-tags`       | `boolean` | `false`                           | Includes tag names (`#Tag/Subtag`) in the search and graph outputs.                                               |
+| `--show-file-path`  | `boolean` | `true`                            | Includes `file_path` in outputs. You can use `--show-file-path=false` to omit it.                                           |
+| `--version`         | `boolean` | `false`                           | Shows version information.                                                                                    |
 
 ### Shared Query Flags
 
@@ -46,6 +49,25 @@ The `search`, `hidden`, and `boosted` commands accept these flags:
 > Note: Supported terminal emulators (for example, Ghostty, WezTerm, Kitty, and iTerm2) automatically enable clickable OSC 8 terminal links. You can set the `NO_HYPERLINKS=1` environment variable to disable hyperlinks for all commands.
 
 > Note: A command exits with a non-zero status when the JSONPath expression is invalid. Scripts can use the exit status to detect this error.
+
+### Exit Codes
+
+NoteBrain uses stable exit codes. Automation and scripts can use them to tell usage errors from operational failures.
+
+| Code | Meaning                                                                                          |
+| :--- | :------------------------------------------------------------------------------------------------ |
+| `0`  | The command ran successfully.                                                                    |
+| `1`  | The command failed at runtime (for example, a missing vault, a corrupted database, or an API error). |
+| `2`  | The command-line arguments were invalid (for example, an unknown flag or an invalid `--log-level` value). |
+
+### Logging Behavior
+
+NoteBrain writes all logs to stderr. It never writes logs to stdout. This keeps stdout clean for command results and for machine formats.
+
+- **Formats**: NoteBrain writes JSON logs when stderr is not a terminal (for example, in scripts, cron, or systemd). It writes text logs when stderr is a terminal.
+- **Colors**: On a terminal, the log level label (`INFO`, `WARN`, `ERROR`, `DEBUG`) is colored. Set the `NO_COLOR` environment variable (or use `TERM=dumb`) to disable colors.
+- **Log files**: Set `--log-file` (or `NOTEBRAIN_LOG_FILE`) to write logs to a rotating JSON file in addition to stderr. `--log-max-size-mb` and `--log-max-backups` control rotation. The systemd service and cron examples in `contrib/automation/` capture stderr, so `--log-file` is optional for them.
+- **Panic safety**: If NoteBrain hits an internal error, it prints `internal error: ...` to stderr, logs the stack, and exits with code `1`. It does not dump a raw stack trace.
 
 ### Token Efficiency and Quiet Mode for AI Agents
 

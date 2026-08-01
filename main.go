@@ -24,9 +24,13 @@ package main
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime/debug"
+
+	"github.com/charmbracelet/x/term"
 
 	"github.com/nmdra/notebrain-cli/v2/cmd"
 )
@@ -41,7 +45,24 @@ var (
 	date    = "unknown"
 )
 
+// Exit codes:
+//
+//	0 - success
+//	1 - runtime or operational failure
+//	2 - command-line usage error
+const (
+	exitOK    = 0
+	exitError = 1
+	exitUsage = 2
+)
+
 func main() {
+	os.Exit(runMain(os.Args[1:]))
+}
+
+func runMain(args []string) (code int) {
+	defer recoverMain(&code)
+
 	if version == "dev" {
 		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
 			version = info.Main.Version
@@ -49,8 +70,37 @@ func main() {
 	}
 
 	ctx := context.Background()
-	if err := cmd.ParseAndRun(ctx, version, commit, date, defaultConfigFile); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	err := cmd.ParseAndRun(ctx, version, commit, date, defaultConfigFile, args)
+	if err == nil {
+		return exitOK
 	}
+
+	if _, ok := errors.AsType[*cmd.UsageError](err); ok {
+		return exitUsage
+	}
+
+	printFatalError(err)
+	return exitError
+}
+
+// recoverMain handles a panic by logging the stack and converting it into a
+// failure exit code. It must be called from a deferred function so that
+// recover() is active.
+func recoverMain(code *int) {
+	if r := recover(); r != nil {
+		stack := debug.Stack()
+		slog.Error("internal error: panic recovered", "panic", fmt.Sprint(r), "stack", string(stack))
+		fmt.Fprintf(os.Stderr, "internal error: %v\n", r)
+		*code = exitError
+	}
+}
+
+// printFatalError writes the final error line to stderr, colored red when
+// stderr is an interactive terminal and colors are allowed.
+func printFatalError(err error) {
+	msg := fmt.Sprintf("Error: %v\n", err)
+	if term.IsTerminal(os.Stderr.Fd()) && os.Getenv("TERM") != "dumb" && os.Getenv("NO_COLOR") == "" {
+		msg = "\x1b[1;31m" + msg + "\x1b[0m"
+	}
+	fmt.Fprintf(os.Stderr, "%s", msg)
 }

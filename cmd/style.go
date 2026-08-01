@@ -14,6 +14,7 @@ var (
 	colorMuted     color.Color
 	colorGood      color.Color
 	colorWarn      color.Color
+	colorError     color.Color
 	headerStyle    lipgloss.Style
 	scoreStyle     lipgloss.Style
 	warnScoreStyle lipgloss.Style
@@ -32,6 +33,7 @@ func initStyles() {
 		colorMuted = lightDark(lipgloss.Color("#888780"), lipgloss.Color("#B4B2A9"))  // gray
 		colorGood = lightDark(lipgloss.Color("#0F6E56"), lipgloss.Color("#5DCAA5"))   // teal
 		colorWarn = lightDark(lipgloss.Color("#C4841D"), lipgloss.Color("#F5A623"))   // amber/orange
+		colorError = lightDark(lipgloss.Color("#B3261E"), lipgloss.Color("#FF6B6B"))  // red
 
 		headerStyle = lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder(), false, false, true, false).

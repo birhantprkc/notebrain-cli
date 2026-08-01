@@ -21,10 +21,21 @@
 # format = "text" # default: "text"
 
 # Logging severity level ("debug", "info", "warn", "error").
+# Precedence: flag > config > NOTEBRAIN_LOG_LEVEL env var > "info".
 # log-level = "info" # default: "info"
 
 # Legacy debug flag (alias for log-level = "debug").
 # debug = false # default: false
+
+# Write logs to this file (JSON) in addition to stderr. The file rotates on
+# size. Precedence: flag > config > NOTEBRAIN_LOG_FILE env var.
+# log-file = "" # default: "" (env: NOTEBRAIN_LOG_FILE)
+
+# Max size of each log file in MiB before rotation (0 = default 10).
+# log-max-size-mb = 10 # default: 10
+
+# Number of rotated log file backups to keep (0 = default 5).
+# log-max-backups = 5 # default: 5
 
 # ------------------------------------------------------------------------------
 # Display & Output Settings

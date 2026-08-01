@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -14,6 +16,7 @@ import (
 	"github.com/posener/complete"
 
 	"github.com/nmdra/notebrain-cli/v2/internal/configfile"
+	"github.com/nmdra/notebrain-cli/v2/internal/logging"
 )
 
 // ChunkDisplayFlags holds options for semantic search commands that return text chunks.
@@ -25,17 +28,20 @@ type ChunkDisplayFlags struct {
 
 // Globals holds shared configuration available to all subcommands.
 type Globals struct {
-	ChromaPath   string           `help:"path to ChromaDB persistent storage directory" default:"~/.notebrain/chroma"`
-	VaultPath    string           `name:"vault-path" help:"path to the Obsidian vault directory"`
-	VaultName    string           `name:"vault-name" help:"vault display name for Obsidian URI links (defaults to basename of --vault-path)"`
-	Format       string           `help:"output format: text, json, or tsv" enum:"text,json,tsv" default:"text"`
-	JSONPath     string           `name:"jsonpath" help:"extract fields using JSONPath (e.g. '$.results[*].note_slug')"`
-	LogLevel     string           `name:"log-level" help:"logging severity level: debug, info, warn, error" enum:"debug,info,warn,error" default:"info"`
-	Debug        bool             `help:"enable debug logging (legacy: alias for --log-level=debug)" default:"false"`
-	SkipPhantom  bool             `name:"skip-phantom" help:"exclude phantom (uncreated) notes from results" default:"true"`
-	ShowTags     bool             `name:"show-tags" help:"include tag names (#tag) in output" default:"false"`
-	ShowFilePath bool             `name:"show-file-path" help:"include file_path in output (use --show-file-path=false to hide)" default:"true"`
-	Version      kong.VersionFlag `name:"version" help:"show version information"`
+	ChromaPath    string           `help:"path to ChromaDB persistent storage directory" default:"~/.notebrain/chroma"`
+	VaultPath     string           `name:"vault-path" help:"path to the Obsidian vault directory"`
+	VaultName     string           `name:"vault-name" help:"vault display name for Obsidian URI links (defaults to basename of --vault-path)"`
+	Format        string           `help:"output format: text, json, or tsv" enum:"text,json,tsv" default:"text"`
+	JSONPath      string           `name:"jsonpath" help:"extract fields using JSONPath (e.g. '$.results[*].note_slug')"`
+	LogLevel      string           `name:"log-level" help:"logging severity level: debug, info, warn, error (default: info; env: NOTEBRAIN_LOG_LEVEL)" default:""`
+	Debug         bool             `help:"enable debug logging (legacy: alias for --log-level=debug)" default:"false"`
+	LogFile       string           `name:"log-file" help:"write logs to this file (JSON) in addition to stderr; rotates on size (env: NOTEBRAIN_LOG_FILE)"`
+	LogMaxSizeMB  int              `name:"log-max-size-mb" help:"max size of each log file in MiB before rotation (0 = default 10)" default:"10"`
+	LogMaxBackups int              `name:"log-max-backups" help:"number of rotated log file backups to keep (0 = default 5)" default:"5"`
+	SkipPhantom   bool             `name:"skip-phantom" help:"exclude phantom (uncreated) notes from results" default:"true"`
+	ShowTags      bool             `name:"show-tags" help:"include tag names (#tag) in output" default:"false"`
+	ShowFilePath  bool             `name:"show-file-path" help:"include file_path in output (use --show-file-path=false to hide)" default:"true"`
+	Version       kong.VersionFlag `name:"version" help:"show version information"`
 
 	// Internal fields, not exposed as flags
 	Ctx           context.Context `kong:"-"`
@@ -79,8 +85,73 @@ func completionPredictors() []kongcompletion.Option {
 }
 
 // ParseAndRun parses CLI arguments and runs the selected subcommand.
-func ParseAndRun(ctx context.Context, version, commit, date string, defaultConfig []byte) error {
-	return parseAndRun(ctx, version, commit, date, defaultConfig, os.Args[1:])
+func ParseAndRun(ctx context.Context, version, commit, date string, defaultConfig []byte, args []string) error {
+	return parseAndRun(ctx, version, commit, date, defaultConfig, args)
+}
+
+// UsageError marks an error as a command-line usage error. runMain maps it to
+// exit code 2, so automation can distinguish bad invocations (2) from
+// operational failures (1).
+type UsageError struct{ Err error }
+
+func (e *UsageError) Error() string { return e.Err.Error() }
+func (e *UsageError) Unwrap() error { return e.Err }
+
+// usageFailure prints the parse error the way kong's FatalIfErrorf would
+// (usage to stdout, error to stderr) and returns a UsageError. In JSON mode
+// the error is emitted as a machine-readable object instead of usage text.
+func usageFailure(parser *kong.Kong, err error, args []string) error {
+	var parseErr *kong.ParseError
+	if errors.As(err, &parseErr) && !argsWantJSON(args) && parseErr.Context != nil {
+		_ = parseErr.Context.PrintUsage(false)
+		fmt.Fprintln(parser.Stdout)
+	}
+	parser.Errorf("%s", err.Error())
+	if argsWantJSON(args) {
+		_, _ = fmt.Fprintf(parser.Stdout, "{\"error\": %q}\n", err.Error())
+	}
+	return &UsageError{Err: err}
+}
+
+const (
+	flagFormat      = "--format"
+	levelDebugLabel = "debug"
+	levelInfoLabel  = "info"
+	levelWarnLabel  = "warn"
+	levelErrorLabel = "error"
+)
+
+// argsWantJSON reports whether the raw arguments request --format json. Flag
+// values are not applied to the CLI struct when parsing fails, so the raw
+// args are the only reliable source for this decision on error paths.
+func argsWantJSON(args []string) bool {
+	for i := range args {
+		arg := args[i]
+		if arg == flagFormat && i+1 < len(args) {
+			if strings.TrimSpace(args[i+1]) == formatJSON {
+				return true
+			}
+			continue
+		}
+		if v, ok := strings.CutPrefix(arg, flagFormat+"="); ok && strings.TrimSpace(v) == formatJSON {
+			return true
+		}
+	}
+	return false
+}
+
+// validateLogLevel rejects log level values that are not one of the supported
+// severities. An empty value means "not set" and defers to the env var and
+// default.
+func validateLogLevel(logLevel string) error {
+	if logLevel == "" {
+		return nil
+	}
+	switch strings.ToLower(logLevel) {
+	case levelDebugLabel, levelInfoLabel, levelWarnLabel, levelErrorLabel:
+		return nil
+	}
+	return fmt.Errorf("--log-level must be one of debug, info, warn, error (got %q)", logLevel)
 }
 
 func parseAndRun(ctx context.Context, version, commit, date string, defaultConfig []byte, args []string) error {
@@ -139,10 +210,20 @@ Examples:
 
 	ctxParser, err := parser.Parse(args)
 	if err != nil {
-		parser.FatalIfErrorf(err)
+		return usageFailure(parser, err, args)
 	}
 
-	setupLogger(cli.LogLevel, cli.Debug)
+	if verr := validateLogLevel(cli.LogLevel); verr != nil {
+		return &UsageError{Err: verr}
+	}
+
+	logWriter, err := setupLogging(cli.LogLevel, cli.Debug, cli.LogFile, cli.LogMaxSizeMB, cli.LogMaxBackups)
+	if err != nil {
+		return fmt.Errorf("setup logging: %w", err)
+	}
+	if logWriter != nil {
+		defer func() { _ = logWriter.Close() }()
+	}
 
 	// Resolve vault display name for Obsidian URI generation.
 	// Priority: --vault-name flag / config > basename(vault-path)
@@ -166,48 +247,109 @@ Examples:
 		}
 		return err
 	}
+	if logWriter != nil {
+		if werr := logWriter.Err(); werr != nil {
+			return fmt.Errorf("log file: %w", werr)
+		}
+	}
 	return nil
 }
 
-func setupLogger(logLevel string, debug bool) {
-	var level slog.Level
-
-	const (
-		levelDebug = "debug"
-		levelInfo  = "info"
-		levelWarn  = "warn"
-		levelError = "error"
-	)
-
+// resolveLogLevel resolves the effective slog level. Precedence:
+// --log-level/--debug flag and config file (logLevel) > NOTEBRAIN_LOG_LEVEL
+// env var > default info.
+func resolveLogLevel(logLevel string, debug bool) slog.Level {
 	if debug {
-		level = slog.LevelDebug
-	} else {
-		switch strings.ToLower(logLevel) {
-		case levelDebug:
-			level = slog.LevelDebug
-		case levelInfo:
-			level = slog.LevelInfo
-		case levelWarn:
-			level = slog.LevelWarn
-		case levelError:
-			level = slog.LevelError
-		default:
-			level = slog.LevelInfo
-		}
+		return slog.LevelDebug
 	}
+	level := logLevel
+	if level == "" {
+		level = os.Getenv("NOTEBRAIN_LOG_LEVEL")
+	}
+	switch strings.ToLower(level) {
+	case levelDebugLabel:
+		return slog.LevelDebug
+	case levelWarnLabel:
+		return slog.LevelWarn
+	case levelErrorLabel:
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
 
+// buildHandler creates a slog handler for the given writer. Text handlers are
+// used for interactive terminals; JSON for everything else. Color applies only
+// to text handlers.
+func buildHandler(level slog.Level, w io.Writer, text, color bool) slog.Handler {
 	opts := &slog.HandlerOptions{Level: level}
-	var handler slog.Handler
+	if level == slog.LevelDebug {
+		opts.AddSource = true
+	}
+	if text {
+		h := slog.NewTextHandler(w, opts)
+		if color {
+			// The colored handler renders the level as a colored prefix, so
+			// drop the plain level attribute from the inner handler.
+			noLevel := *opts
+			noLevel.ReplaceAttr = func(_ []string, a slog.Attr) slog.Attr {
+				if a.Key == slog.LevelKey {
+					return slog.Attr{}
+				}
+				return a
+			}
+			h = slog.NewTextHandler(w, &noLevel)
+			return &coloredTextHandler{inner: h, w: w}
+		}
+		return h
+	}
+	return slog.NewJSONHandler(w, opts)
+}
 
-	isTTY := term.IsTerminal(os.Stderr.Fd()) && os.Getenv("TERM") != "dumb"
+// stderrIsTTY reports whether stderr is an interactive terminal.
+func stderrIsTTY() bool {
+	return term.IsTerminal(os.Stderr.Fd()) && os.Getenv("TERM") != "dumb"
+}
 
-	if !isTTY {
-		handler = slog.NewJSONHandler(os.Stderr, opts)
-	} else {
-		handler = slog.NewTextHandler(os.Stderr, opts)
+// colorAllowed reports whether ANSI colors may be emitted on stderr.
+func colorAllowed() bool {
+	return stderrIsTTY() && os.Getenv("NO_COLOR") == ""
+}
+
+// setupLogger configures the default slog logger for stderr.
+func setupLogger(logLevel string, debug bool) {
+	level := resolveLogLevel(logLevel, debug)
+	slog.SetDefault(slog.New(buildHandler(level, os.Stderr, stderrIsTTY(), colorAllowed())))
+}
+
+// setupLogging configures slog for stderr and, when logFile is set, adds a
+// rotating JSON file sink that receives the same events (tee). The returned
+// writer must be closed by the caller.
+func setupLogging(logLevel string, debug bool, logFile string, maxSizeMB, maxBackups int) (*logging.RotatingWriter, error) {
+	level := resolveLogLevel(logLevel, debug)
+	slog.SetDefault(slog.New(buildHandler(level, os.Stderr, stderrIsTTY(), colorAllowed())))
+
+	logFile = resolveLogFile(logFile)
+	if logFile == "" {
+		return nil, nil
 	}
 
-	slog.SetDefault(slog.New(handler))
+	w, err := logging.NewRotatingWriter(logFile, int64(maxSizeMB)<<20, maxBackups)
+	if err != nil {
+		return nil, err
+	}
+	fileHandler := buildHandler(level, w, false, false)
+	slog.SetDefault(slog.New(slog.NewMultiHandler(slog.Default().Handler(), fileHandler)))
+	return w, nil
+}
+
+// resolveLogFile returns the log file path, falling back to the
+// NOTEBRAIN_LOG_FILE env var when the flag and config file leave it unset.
+func resolveLogFile(logFile string) string {
+	if logFile == "" {
+		return os.Getenv("NOTEBRAIN_LOG_FILE")
+	}
+	return logFile
 }
 
 // hyperlinkSupported returns true if the terminal supports OSC 8 hyperlinks

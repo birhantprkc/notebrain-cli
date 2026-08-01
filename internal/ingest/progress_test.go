@@ -32,7 +32,7 @@ func (m *failOnTextEmbedder) Model() string { return "mock" }
 
 func TestRunProgress(t *testing.T) {
 	var buf bytes.Buffer
-	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	oldLogger := slog.Default()
 	slog.SetDefault(logger)
 	defer slog.SetDefault(oldLogger)
@@ -53,6 +53,29 @@ func TestRunProgress(t *testing.T) {
 	}
 }
 
+// TestRunProgressIsDebug verifies that per-file progress events are emitted at
+// debug level, so large vaults stay quiet at the default info level.
+func TestRunProgressIsDebug(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	oldLogger := slog.Default()
+	slog.SetDefault(logger)
+	defer slog.SetDefault(oldLogger)
+
+	progressCh := make(chan ProgressUpdate, 1)
+	progressCh <- ProgressUpdate{Done: 1, Current: "note1.md"}
+	close(progressCh)
+
+	RunProgress(100, progressCh)
+
+	if strings.Contains(buf.String(), "ingestion progress") {
+		t.Errorf("per-file progress must be debug level, got:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "ingestion completed") {
+		t.Errorf("expected 'ingestion completed' at info level, got:\n%s", buf.String())
+	}
+}
+
 // TestRunProgressCountsFailedFiles verifies that failed files still advance
 // the progress counter, so percent reaches 100 even when some files error out.
 func TestRunProgressCountsFailedFiles(t *testing.T) {
@@ -69,7 +92,7 @@ func TestRunProgressCountsFailedFiles(t *testing.T) {
 	writeTestFile(t, filepath.Join(vaultDir, "bad.md"), "This file always fails to embed.")
 
 	var buf bytes.Buffer
-	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	oldLogger := slog.Default()
 	slog.SetDefault(logger)
 	defer slog.SetDefault(oldLogger)

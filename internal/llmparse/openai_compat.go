@@ -17,6 +17,10 @@ const (
 	reservedTokens = 8192
 	maxRetries     = 3
 	initialBackoff = 2 * time.Second
+
+	// maxErrorBodyBytes caps how much of an upstream response body is embedded
+	// into an error message, so responses cannot bloat logs or leak secrets.
+	maxErrorBodyBytes = 500
 )
 
 // maxRetryAfter caps how long a Retry-After header can stall the retry.
@@ -134,7 +138,11 @@ func (o *openAICompatConverter) convertChunk(ctx context.Context, chunk string) 
 	}
 
 	if len(chatResp.Choices) == 0 {
-		return "", fmt.Errorf("returned no choices. body: %s", string(respBody))
+		body := strings.TrimSpace(string(respBody))
+		if len(body) > maxErrorBodyBytes {
+			body = body[:maxErrorBodyBytes] + "... (truncated)"
+		}
+		return "", fmt.Errorf("returned no choices. body: %s", body)
 	}
 
 	return chatResp.Choices[0].Message.Content, nil

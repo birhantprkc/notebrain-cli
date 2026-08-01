@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -459,6 +460,26 @@ func TestRetryAfterIsCapped(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > 2*time.Second {
 		t.Errorf("Retry-After was not capped; retry took %v", elapsed)
+	}
+}
+
+func TestOpenAICompatConverter_NoChoicesBodyTruncated(t *testing.T) {
+	bigBody := strings.Repeat("x", 5000)
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{"choices": [], "unused": %q}`, bigBody)
+	}))
+	defer mockServer.Close()
+
+	conv := newOpenAICompatConverter(mockServer.URL, "test-key", "test-model", "test-backend", 128000, nil)
+	_, err := conv.Convert(context.Background(), []string{"raw text"})
+	if err == nil {
+		t.Fatal("expected error for empty choices")
+	}
+	if !strings.Contains(err.Error(), "... (truncated)") {
+		t.Errorf("expected truncation marker in error, got: %v", err)
+	}
+	if len(err.Error()) > 650 {
+		t.Errorf("error message too long (%d bytes): %.100s...", len(err.Error()), err)
 	}
 }
 

@@ -2,6 +2,7 @@ package pdfextract
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/klippa-app/go-pdfium"
@@ -94,7 +95,7 @@ func (b *PDFiumBackend) Close() error {
 		}
 	}
 	if len(errs) > 0 {
-		return fmt.Errorf("errors closing PDFium: %v", errs)
+		return fmt.Errorf("errors closing PDFium: %w", errors.Join(errs...))
 	}
 	return nil
 }

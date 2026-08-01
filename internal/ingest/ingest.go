@@ -271,12 +271,16 @@ fileLoop:
 
 	close(errCh)
 
-	var firstErr error
+	// maxReportedWorkerErrors caps how many worker errors are joined into the
+	// returned error, so a failing vault does not produce an unbounded error.
+	const maxReportedWorkerErrors = 20
+
+	var errs []error
 	for e := range errCh {
-		if firstErr == nil {
-			firstErr = e
+		if len(errs) < maxReportedWorkerErrors {
+			errs = append(errs, e)
 		}
-		slog.Error("ingestion worker error", "err", e)
+		slog.Error("ingestion worker error", "error", e)
 	}
 
 	failed := p.FailedFiles()
@@ -287,10 +291,10 @@ fileLoop:
 		}
 	}
 
-	if firstErr == nil && ctx.Err() != nil {
+	if len(errs) == 0 && ctx.Err() != nil {
 		return ctx.Err()
 	}
-	return firstErr
+	return errors.Join(errs...)
 }
 
 // collectFiles walks the vault directory and returns all .md files matching glob.
