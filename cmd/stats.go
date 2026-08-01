@@ -48,9 +48,20 @@ func (c *StatsCmd) Run(globals *Globals) error {
 	}
 
 	if globals.Format == formatJSON {
+		env := struct {
+			Command string `json:"command"`
+			Notes   int64  `json:"notes"`
+			Chunks  int64  `json:"chunks"`
+			Links   int64  `json:"links"`
+		}{
+			Command: "stats",
+			Notes:   stats["notes"],
+			Chunks:  stats["chunks"],
+			Links:   stats["links"],
+		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		return enc.Encode(stats)
+		return enc.Encode(env)
 	}
 
 	if globals.Format == formatTSV {

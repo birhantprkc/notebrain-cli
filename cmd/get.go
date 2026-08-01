@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/nmdra/notebrain-cli/v2/internal/store"
 )
 
 type GetCmd struct {
@@ -30,9 +32,18 @@ func (c *GetCmd) Run(globals *Globals) error {
 
 	switch globals.Format {
 	case formatJSON:
+		env := struct {
+			Command string             `json:"command"`
+			Query   string             `json:"query"`
+			Note    *store.NoteContent `json:"note"`
+		}{
+			Command: groupGet,
+			Query:   c.Slug,
+			Note:    note,
+		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		return enc.Encode(note)
+		return enc.Encode(env)
 
 	case formatTSV:
 		fmt.Println("note_slug\ttitle\tfile_path\ttags\tchunks\ttext")

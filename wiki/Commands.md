@@ -81,8 +81,9 @@ When you execute NoteBrain queries inside AI agent workflows, automated pipeline
 
 1. **Clean stdout in machine formats**:
    NoteBrain writes query results to stdout and all diagnostics (progress, warnings) to stderr. When you use a non-interactive machine format (`--format=json`, `tsv`, or `--jsonpath`), stdout is clean and correct for JSON parsers and AI agents.
-2. **Compact JSON envelopes**:
-   By default, the JSON output includes the necessary properties in a clean format. You can use `--show-file-path=false` to remove file paths. This decreases the token consumption for Large Language Models. The similarity scores (`score`) round to 4 decimal places (`0.8520`). The query headers (`query`) do not have terminal decorations.
+ 2. **Compact JSON envelopes**:
+    By default, the JSON output includes the necessary properties in a clean format. You can use `--show-file-path=false` to remove file paths. This decreases the token consumption for Large Language Models. The similarity scores (`score`) round to 4 decimal places (`0.8520`). The query headers (`query`) do not have terminal decorations.
+    All commands wrap their JSON output in the same envelope: the command name under `command`, the inputs under `query`, and the data under a command-specific key (`results`, `note`, or the count fields). For example, `notebrain get "slug" --format=json` returns `{"command":"get","query":"slug","note":{...}}`. The `--jsonpath` expression still operates on the inner data, so existing paths such as `$.note_slug` and `$.links` keep working.
 3. **Non-redundant context windows (`--context-window N`)**:
    If you pass `--context-window N` (for example, `--context-window 1` or `2`) with `--include-text`, NoteBrain gets ±N adjacent chunks into the `context` array. It does not include the matched chunk (`text`) in the array (`PopulateContext`). This prevents duplicated text across `text` and `context`.
 
