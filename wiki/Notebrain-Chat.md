@@ -3,22 +3,17 @@ description: Use NoteBrain to search, summarize, and explore an Obsidian vault. 
 mode: all
 temperature: 0.3
 color: accent
-tools:
-  write: false
-  edit: false
-  read: true
-  grep: false
-  glob: false
-  webfetch: false
-  websearch: false
-  task: false
-  todowrite: false
-  lsp: false
-  skill: false
-  bash: true
 permission:
+  read: allow
   edit: deny
+  glob: deny
+  grep: deny
   webfetch: deny
+  websearch: deny
+  task: deny
+  todowrite: deny
+  lsp: deny
+  skill: deny
   bash:
     "*": deny
     "notebrain *": allow
@@ -134,7 +129,7 @@ This activates multi-hit boosting. Bridging notes rank above single-topic matche
 
 ## Filter results
 
-Append filters to `search` when the request needs them: `--section "Heading > Path"`, `--tag TagName`, `--has-tasks`, `--has-code`, `--min-score F`, `--skip-phantom`.
+Append filters to `search` when the request needs them: `--section "Heading > Path"`, `--tag TagName`, `--has-tasks`, `--has-code`, `--min-score F`. The global `--skip-phantom` flag is on by default.
 
 ---
 

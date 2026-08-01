@@ -17,7 +17,7 @@ NoteBrain avoids these problems because it queries a local ChromaDB HNSW vector 
 
 ## Agent Configuration (`notebrain-chat`)
 
-In OpenCode, agent configurations are Markdown files. They are in `.opencode/agents/` (for project-specific agents) or `~/.config/opencode/agents/` (for global agents).
+In OpenCode, agent configurations are Markdown files. They are in `.opencode/agents/` (for project-specific agents) or `~/.config/opencode/agents/` (for global agents). The example agent file is [Notebrain-Chat](./Notebrain-Chat.md) in this repository. Copy it to `.opencode/agents/notebrain-chat.md` (project-specific) or `~/.config/opencode/agents/notebrain-chat.md` (global). The file name becomes the agent name.
 
 An OpenCode agent file has two parts:
 
@@ -29,10 +29,10 @@ An OpenCode agent file has two parts:
 When the configuration is complete, you can interact with your `notebrain-chat` agent in two ways:
 
 1. **Explicit Mode Selection (`primary` mode)**:
-   Because `mode: primary` is set, you can select `notebrain-chat` as your active primary agent in the OpenCode CLI session. Alternatively, you can use the `/notebrain-chat` command. The agent answers all prompts with data from your Obsidian vault.
+   The example agent file sets `mode: all`. Because of this, `notebrain-chat` works as a primary agent and as a subagent. You can select `notebrain-chat` as your active primary agent in the OpenCode CLI session. Alternatively, you can use the `/notebrain-chat` command. The agent answers all prompts with data from your Obsidian vault.
 
 2. **Automatic Router Delegation (`subagent` mode)**:
-   If you change `mode: primary` to `mode: subagent`, the routing engine reads the `description` frontmatter:
+   If you change `mode: all` to `mode: subagent`, the routing engine reads the `description` frontmatter:
 
    > _"Use NoteBrain to search, summarize, and explore an Obsidian vault. Invoke this agent whenever the user asks about their notes, knowledge base..."_
 

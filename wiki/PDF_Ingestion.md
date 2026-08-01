@@ -34,7 +34,7 @@ You can set these values permanently with the CLI wizard:
 notebrain init
 ```
 
-Alternatively, put them in your `~/.notebrain/config.toml`:
+Alternatively, put them in your `~/.notebrain/config/config.toml`:
 
 ```toml
 enable_pdf = true

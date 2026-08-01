@@ -69,7 +69,7 @@ graph TD
 
 ## 2. Local Vector Database (ChromaDB)
 
-NoteBrain embeds ChromaDB directly into the Go binary. It uses `chroma-go` v2. NoteBrain runs embedded in the local process (`CGO_ENABLED=1`). The tool compiles the bindings for SQLite and HNSW directly. The vector storage writes to the disk synchronously at `~/.notebrain/chroma`.
+NoteBrain embeds ChromaDB directly into the Go binary. It uses the `chroma-go` library (module v0.4.1, API package v2). NoteBrain runs embedded in the local process (`CGO_ENABLED=1`). The tool compiles the bindings for SQLite and HNSW directly. The vector storage writes to the disk synchronously at `~/.notebrain/chroma`.
 
 ---
 

@@ -7,6 +7,7 @@ NoteBrain has a built-in AI agent skill: `notebrain-assistant`. This skill opera
 The skill instructions and the evaluation workspace are in the project root:
 
 - **Skill Instructions**: `.agents/skills/notebrain/SKILL.md`
+- **Workspace snapshot**: `.agents/skills/notebrain-workspace/iteration-3/skill-snapshot/SKILL.md` (an identical copy)
 
 AI agents find and obey these instructions automatically when you ask about your notes. This occurs when you work inside this repository or import the skill into your AI configuration.
 

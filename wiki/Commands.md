@@ -16,24 +16,32 @@ automation workflows.
 
 ## Global Flags
 
-You can apply these flags to `notebrain` before a subcommand (for example, `notebrain --verbose search "query"`). You can also put them in your configuration file.
+You can apply these flags to `notebrain` before a subcommand (for example, `notebrain --debug search "query"`). You can also put them in your configuration file.
 
-| Flag                | Type      | Default                           | Description                                                                                                  |
-| :------------------ | :-------- | :-------------------------------- | :----------------------------------------------------------------------------------------------------------- |
-| `--config`          | `string`  | `~/.notebrain/config/config.toml` | The path to the TOML configuration file.                                                                                |
-| `--chroma-path`     | `string`  | `~/.notebrain/chroma`             | The path to the persistent storage of ChromaDB. You can also use the `$CHROMA_PATH` environment variable.            |
-| `--vault-path`      | `string`  | _(None)_                          | **Required.** The absolute path to your Obsidian vault.                                                          |
-| `--vault-name`      | `string`  | _(Basename of vault)_             | The name of the Obsidian vault (to generate `obsidian://` URI links).                                           |
-| `--debug`           | `boolean` | `false`                           | Enables the debug-level log output to stderr.                                                                 |
-| `--format`          | `string`  | `text`                            | The output format: `text` (standard text), `json` (structured JSON), or `tsv` (tab-separated values).     |
-| `--jsonpath`        | `string`  | _(None)_                          | A JSONPath expression to extract and filter fields from the JSON output (for example, `$.results[0].note_slug`). |
-| `--include-text`    | `boolean` | `false`                           | Includes the text of the matched chunk inside structured outputs (`json`, `tsv`).             |
-| `--context-window`  | `integer` | `0`                               | Gets ±N adjacent chunks around each match to give more context.                                  |
-| `--min-score`       | `float`   | `0.0`                             | Does not show search results with a similarity score below this value (0.0 to 1.0).                                            |
-| `--respect-exclude` | `boolean` | `false`                           | Obeys the Obsidian user filters and attachment exclusions during ingestion.                      |
-| `--show-tags`       | `boolean` | `false`                           | Includes tag names (`#Tag/Subtag`) in the search and graph outputs.                                               |
-| `--show-file-path`  | `boolean` | `true`                            | Includes `file_path` in outputs. You can use `--show-file-path=false` to omit it.                                           |
-| `--version`         | `boolean` | `false`                           | Shows version information.                                                                                    |
+| Flag               | Type      | Default                           | Description                                                                                                  |
+| :----------------- | :-------- | :-------------------------------- | :----------------------------------------------------------------------------------------------------------- |
+| `--config`         | `string`  | `~/.notebrain/config/config.toml` | The path to the TOML configuration file.                                                                                |
+| `--chroma-path`    | `string`  | `~/.notebrain/chroma`             | The path to the persistent storage of ChromaDB.                                                                             |
+| `--vault-path`     | `string`  | _(None)_                          | **Required.** The absolute path to your Obsidian vault.                                                          |
+| `--vault-name`     | `string`  | _(Basename of vault)_             | The name of the Obsidian vault (to generate `obsidian://` URI links).                                           |
+| `--log-level`      | `string`  | `info`                            | The logging severity level: `debug`, `info`, `warn`, or `error`.                                                |
+| `--debug`          | `boolean` | `false`                           | Enables the debug-level log output to stderr. This is a legacy alias for `--log-level=debug`.                    |
+| `--skip-phantom`   | `boolean` | `true`                            | Excludes phantom (uncreated) notes from the results. Use `--skip-phantom=false` to include them.                 |
+| `--format`         | `string`  | `text`                            | The output format: `text` (standard text), `json` (structured JSON), or `tsv` (tab-separated values).     |
+| `--jsonpath`       | `string`  | _(None)_                          | A JSONPath expression to extract and filter fields from the JSON output (for example, `$.results[0].note_slug`). |
+| `--show-tags`      | `boolean` | `false`                           | Includes tag names (`#Tag/Subtag`) in the search and graph outputs.                                               |
+| `--show-file-path` | `boolean` | `true`                            | Includes `file_path` in outputs. You can use `--show-file-path=false` to omit it.                                           |
+| `--version`        | `boolean` | `false`                           | Shows version information.                                                                                    |
+
+### Shared Query Flags
+
+The `search`, `hidden`, and `boosted` commands accept these flags:
+
+| Flag               | Type      | Default | Description                                                                 |
+| :----------------- | :-------- | :------ | :-------------------------------------------------------------------------- |
+| `--include-text`   | `boolean` | `false` | Includes the text of the matched chunk inside structured outputs (`json`, `tsv`). |
+| `--context-window` | `integer` | `0`     | Gets ±N adjacent chunks around each match to give more context.             |
+| `--min-score`      | `float`   | `0.0`   | Does not show search results with a similarity score below this value (0.0 to 1.0). |
 
 > Note: Supported terminal emulators (for example, Ghostty, WezTerm, Kitty, and iTerm2) automatically enable clickable OSC 8 terminal links. You can set the `NO_HYPERLINKS=1` environment variable to disable hyperlinks for all commands.
 
@@ -70,7 +78,7 @@ When a search or graph command returns zero results in standard terminal `text` 
 
 Commands that target a specific note (`backlinks`, `connections`, `hidden`, `tags`, `boosted --seed=<note>`, `get`) accept these formats for the `<note>` parameter:
 
-1. **Exact note slug**: The normalized identifier in the database (for example, `00fleeting-noteskubernetes-networking-toolsspiffe`).
+1. **Exact note slug**: The normalized identifier in the database (for example, `kubernetes-networking-tools-spiffe`).
 2. **Note title**: The note title. This does not care about case (for example, `"SPIFFE"` or `"Rust Programming"`).
 3. **Filename**: The exact file name. This does not care about case (for example, `"SPIFFE.md"`).
 4. **Partial path or suffix**: The end of the relative path inside your vault (for example, `"tools/SPIFFE.md"`).
@@ -106,6 +114,7 @@ notebrain ingest [<glob>] [flags]
 | `--enable-pdf`      | `boolean` | `false` | Enables the extraction of PDF text. This requires `--llm-model`.                      |
 | `--llm-model`       | `string`  | `""`    | The LLM model to parse PDFs (for example, `openrouter/inclusionai/ling-3.0-flash:free`). |
 | `--llm-context-window` | `integer` | `128000` | The total context window size of the LLM in tokens.                                         |
+| `--respect-exclude` | `boolean` | `false` | Obeys the Obsidian user filters and attachment exclusions during ingestion. |
 
 #### Attachment Embeds
 
@@ -448,6 +457,32 @@ This command prints version information. This information includes the build com
 ```bash
 notebrain version [flags]
 ```
+
+---
+
+### `completion`
+
+This command prints the activation code for tab completion. It supports **bash**, **zsh**, and **fish**. It completes subcommands, flags, enum values, and note slugs from your live index.
+
+#### Usage
+
+```bash
+notebrain completion [bash|zsh|fish]
+```
+
+Without a shell argument, the command detects your login shell automatically. Use `-c` to print only the code that you source from your init file.
+
+#### Examples
+
+```bash
+# Show the activation line for the current shell
+notebrain completion
+
+# Print the code for zsh to source from ~/.zshrc
+notebrain completion -c zsh
+```
+
+For the full activation instructions and limitations, see [Shell Completion](Shell_Completion.md).
 
 ---
 
