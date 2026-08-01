@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.11.0] - 2026-08-01
+
+### Added
+- **Shell Completion**: Added tab completion for bash, zsh, and fish covering subcommands, flags, enum values, and live note slugs from the index via a hidden `suggest-notes` command (`feat(cmd)`).
+- **ChromaDB Corruption Detection**: `notebrain doctor` now detects corrupted databases and reports them clearly (`feat(cmd)`).
+- **Configurable `--log-level` Flag**: Added `--log-level` back as a configurable CLI flag with TOML support, replacing the binary debug flag (`fix(cli)`).
+- **Code Block Metadata**: Ingestion now persists whether a chunk contains fenced code blocks, enabling the `--has-code` search filter (`feat(ingest)`).
+- **Recursive Glob Ingestion**: Ingestion now supports recursive `**` glob patterns via doublestar (`fix(ingest)`).
+- **Documentation**: Rewrote the wiki in Simplified Technical English and documented shell completion setup, attachment embeds, JSONPath exit codes, and chunk schema v5 (`docs(wiki)`).
+- **Agent Skill Updates**: Corrected the `file_path` default claim, added search filter flags, and added pre-flight checks to the NoteBrain agent skill and `notebrain-chat` agent definition (`docs(skill)`).
+
+### Changed
+- **Store Robustness**: Guarded paginated `Get` helpers against nil responses, clamped search limits, aligned `MatchedQueries`, and dropped a redundant filter block (`fix(store)`).
+- **Parser Cleanup**: Replaced the wikilink if-else chain with a switch and snapped chunk boundaries out of placeholder tokens (`refactor(parser)`).
+- **Embedder Simplification**: Dropped a pointless goroutine wrapper in the embedding path (`refactor(embedder)`).
+
+### Removed
+- **Dead Code**: Removed the unused `obsidian` package, legacy pdfextract files, the dead tesseract OCR path, and the unreachable ndjson output format (`chore`, `refactor(pdfextract)`, `fix(cmd)`).
+
+### Fixed
+- **Store Reliability**: Deterministic link vectors and metadata error propagation, written tags capped to the queryable range, swallowed query errors propagated, FFI-cap warnings emitted once per command, and cleanup/graph queries paginated within FFI limits (`fix(store)`).
+- **Parser**: Preserved unicode in slugs, allowlisted attachment extensions, and cleaned image-embed noise from chunk text and the link index (`fix(parser)`).
+- **Ingestion**: Counted failed files in progress reporting, stored overlap-free chunk text while embedding full text, and preserved the note index when all chunks of a note are filtered (`fix(ingest)`).
+- **PDF & LLM Parsing**: Honored model-prefix backends with mismatch warnings, capped `Retry-After` handling, split PDF pages on rune boundaries within token budget, and sized the WASM pool to workers (`fix(llmparse)`, `fix(pdfextract)`).
+- **CLI**: Propagated JSONPath errors so all commands exit non-zero and resolved an ineffectual assignment in logger setup (`fix(cmd)`).
+- **Configuration**: Resolved normalized TOML key collisions deterministically (`fix(configfile)`).
+
 ## [v2.10.0] - 2026-07-29
 
 ### Added
