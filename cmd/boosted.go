@@ -30,12 +30,12 @@ import (
 )
 
 type BoostedCmd struct {
-	ChunkDisplayFlags
 	Query   string  `arg:"" help:"search query text"`
-	Limit   int     `help:"maximum number of results" default:"10"`
-	Seed    string  `help:"seed note (slug, title, or path) whose graph neighbors get score boost" required:"true" completion-predictor:"note-slug"`
-	Boost   float64 `help:"score multiplier for graph-connected results (e.g. 1.5 = 50% boost)" default:"1.5"`
-	WithPDF bool    `help:"include PDF results in search"`
+	Limit   int     `group:"boosted" help:"maximum number of results" default:"10"`
+	Seed    string  `group:"boosted" help:"seed note (slug, title, or path) whose graph neighbors get score boost" required:"true" completion-predictor:"note-slug"`
+	Boost   float64 `group:"boosted" help:"score multiplier for graph-connected results (e.g. 1.5 = 50% boost)" default:"1.5"`
+	WithPDF bool    `group:"boosted" help:"include PDF results in search"`
+	ChunkDisplayFlags
 }
 
 func (c *BoostedCmd) buildWhereFilter() chroma.WhereFilter {

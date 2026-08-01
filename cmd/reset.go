@@ -29,7 +29,7 @@ import (
 )
 
 type ResetCmd struct {
-	Yes bool `short:"y" help:"skip confirmation prompt (use in scripts and automation)"`
+	Yes bool `group:"reset" short:"y" help:"skip confirmation prompt (use in scripts and automation)"`
 }
 
 func (c *ResetCmd) Run(globals *Globals) error {

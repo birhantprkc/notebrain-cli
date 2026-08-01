@@ -34,15 +34,15 @@ import (
 )
 
 type SearchCmd struct {
+	Queries     []string `group:"search" arg:"" optional:"" name:"query" help:"search query (multiple args for multi-hit boosting)"`
+	Limit       int      `group:"search" help:"maximum number of results" default:"10"`
+	TopKPerNote int      `group:"search" name:"top-k" help:"maximum chunks to retain per note (prevents one note dominating)" default:"3"`
+	Section     string   `group:"search" help:"filter results to chunks under this heading path (e.g. 'Architecture > Components')"`
+	Tag         string   `group:"search" help:"filter results to notes with this tag"`
+	HasTasks    bool     `group:"search" help:"only return chunks containing task lists (checkboxes)"`
+	HasCode     bool     `group:"search" help:"only return chunks containing fenced code blocks"`
+	WithPDF     bool     `group:"search" help:"include PDF results in search"`
 	ChunkDisplayFlags
-	Queries     []string `arg:"" optional:"" name:"query" help:"search query (multiple args for multi-hit boosting)"`
-	Limit       int      `help:"maximum number of results" default:"10"`
-	TopKPerNote int      `name:"top-k" help:"maximum chunks to retain per note (prevents one note dominating)" default:"3"`
-	Section     string   `help:"filter results to chunks under this heading path (e.g. 'Architecture > Components')"`
-	Tag         string   `help:"filter results to notes with this tag"`
-	HasTasks    bool     `help:"only return chunks containing task lists (checkboxes)"`
-	HasCode     bool     `help:"only return chunks containing fenced code blocks"`
-	WithPDF     bool     `help:"include PDF results in search"`
 }
 
 func resolveQueries(queries []string) []string {

@@ -18,6 +18,8 @@ automation workflows.
 
 You can apply these flags to `notebrain` before a subcommand (for example, `notebrain --debug search "query"`). You can also put them in your configuration file.
 
+> Note: In `notebrain <command> --help` output, the flags are grouped under titled sections: `Global Flags` (shared by all commands), the command-specific section (for example, `Search Flags`), and `Output Flags` (`--include-text`, `--context-window`, `--min-score`).
+
 | Flag                | Type      | Default                           | Description                                                                                                  |
 | :------------------ | :-------- | :-------------------------------- | :----------------------------------------------------------------------------------------------------------- |
 | `--config`          | `string`  | `~/.notebrain/config/config.toml` | The path to the TOML configuration file.                                                                                |

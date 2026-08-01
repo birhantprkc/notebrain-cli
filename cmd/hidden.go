@@ -29,12 +29,12 @@ import (
 )
 
 type HiddenCmd struct {
-	ChunkDisplayFlags
 	Note          string `arg:"" help:"note slug, title, or file path (auto-resolved)" completion-predictor:"note-slug"`
-	Limit         int    `help:"maximum number of hidden connections to return" default:"10"`
-	Deep          bool   `help:"analyze each chunk individually for granular section-level matches"`
-	TopK          int    `name:"top-k" help:"chunks to evaluate per candidate note in --deep mode" default:"3"`
-	IncludeLinked bool   `name:"include-linked" help:"include notes even if they are already linked directly or indirectly"`
+	Limit         int    `group:"hidden" help:"maximum number of hidden connections to return" default:"10"`
+	Deep          bool   `group:"hidden" help:"analyze each chunk individually for granular section-level matches"`
+	TopK          int    `group:"hidden" name:"top-k" help:"chunks to evaluate per candidate note in --deep mode" default:"3"`
+	IncludeLinked bool   `group:"hidden" name:"include-linked" help:"include notes even if they are already linked directly or indirectly"`
+	ChunkDisplayFlags
 }
 
 func (c *HiddenCmd) Run(globals *Globals) error {

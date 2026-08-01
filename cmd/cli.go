@@ -21,27 +21,60 @@ import (
 
 // ChunkDisplayFlags holds options for semantic search commands that return text chunks.
 type ChunkDisplayFlags struct {
-	IncludeText   bool    `help:"include the matched markdown text in each result"`
-	ContextWindow int     `name:"context-window" help:"fetch ±N surrounding chunks around each match (0=off)" default:"0"`
-	MinScore      float64 `help:"minimum similarity score to include in results (0.0–1.0)" default:"0"`
+	IncludeText   bool    `group:"display" help:"include the matched markdown text in each result"`
+	ContextWindow int     `group:"display" name:"context-window" help:"fetch ±N surrounding chunks around each match (0=off)" default:"0"`
+	MinScore      float64 `group:"display" help:"minimum similarity score to include in results (0.0–1.0)" default:"0"`
+}
+
+// Flag group keys. The order here determines the order of the titled
+// sections in --help output.
+const (
+	groupGlobal  = "global"
+	groupDisplay = "display"
+	groupIngest  = "ingest"
+	groupSearch  = "search"
+	groupConn    = "connections"
+	groupHidden  = "hidden"
+	groupBoosted = "boosted"
+	groupTags    = "tags"
+	groupReset   = "reset"
+	groupGet     = "get"
+)
+
+// helpGroups returns the titled flag groups shown in --help output. Flags in
+// the "global" group are shared by every command; the remaining groups hold
+// command-specific flags so users can spot them without scrolling.
+func helpGroups() []kong.Group {
+	return []kong.Group{
+		{Key: groupGlobal, Title: "Global Flags"},
+		{Key: groupDisplay, Title: "Output Flags"},
+		{Key: groupIngest, Title: "Ingest Flags"},
+		{Key: groupSearch, Title: "Search Flags"},
+		{Key: groupConn, Title: "Connections Flags"},
+		{Key: groupHidden, Title: "Hidden Flags"},
+		{Key: groupBoosted, Title: "Boosted Flags"},
+		{Key: groupTags, Title: "Tags Flags"},
+		{Key: groupReset, Title: "Reset Flags"},
+		{Key: groupGet, Title: "Get Flags"},
+	}
 }
 
 // Globals holds shared configuration available to all subcommands.
 type Globals struct {
-	ChromaPath    string           `help:"path to ChromaDB persistent storage directory" default:"~/.notebrain/chroma"`
-	VaultPath     string           `name:"vault-path" help:"path to the Obsidian vault directory"`
-	VaultName     string           `name:"vault-name" help:"vault display name for Obsidian URI links (defaults to basename of --vault-path)"`
-	Format        string           `help:"output format: text, json, or tsv" enum:"text,json,tsv" default:"text"`
-	JSONPath      string           `name:"jsonpath" help:"extract fields using JSONPath (e.g. '$.results[*].note_slug')"`
-	LogLevel      string           `name:"log-level" help:"logging severity level: debug, info, warn, error (default: info; env: NOTEBRAIN_LOG_LEVEL)" default:""`
-	Debug         bool             `help:"enable debug logging (legacy: alias for --log-level=debug)" default:"false"`
-	LogFile       string           `name:"log-file" help:"write logs to this file (JSON) in addition to stderr; rotates on size (env: NOTEBRAIN_LOG_FILE)"`
-	LogMaxSizeMB  int              `name:"log-max-size-mb" help:"max size of each log file in MiB before rotation (0 = default 10)" default:"10"`
-	LogMaxBackups int              `name:"log-max-backups" help:"number of rotated log file backups to keep (0 = default 5)" default:"5"`
-	SkipPhantom   bool             `name:"skip-phantom" help:"exclude phantom (uncreated) notes from results" default:"true"`
-	ShowTags      bool             `name:"show-tags" help:"include tag names (#tag) in output" default:"false"`
-	ShowFilePath  bool             `name:"show-file-path" help:"include file_path in output (use --show-file-path=false to hide)" default:"true"`
-	Version       kong.VersionFlag `name:"version" help:"show version information"`
+	ChromaPath    string           `group:"global" help:"path to ChromaDB persistent storage directory" default:"~/.notebrain/chroma"`
+	VaultPath     string           `group:"global" name:"vault-path" help:"path to the Obsidian vault directory"`
+	VaultName     string           `group:"global" name:"vault-name" help:"vault display name for Obsidian URI links (defaults to basename of --vault-path)"`
+	Format        string           `group:"global" help:"output format: text, json, or tsv" enum:"text,json,tsv" default:"text"`
+	JSONPath      string           `group:"global" name:"jsonpath" help:"extract fields using JSONPath (e.g. '$.results[*].note_slug')"`
+	LogLevel      string           `group:"global" name:"log-level" placeholder:"debug|info|warn|error" help:"logging severity level (default: info; env: NOTEBRAIN_LOG_LEVEL)" default:""`
+	Debug         bool             `group:"global" help:"enable debug logging (legacy: alias for --log-level=debug)" default:"false"`
+	LogFile       string           `group:"global" name:"log-file" help:"write logs to this file (JSON) in addition to stderr; rotates on size (env: NOTEBRAIN_LOG_FILE)"`
+	LogMaxSizeMB  int              `group:"global" name:"log-max-size-mb" help:"max size of each log file in MiB before rotation (0 = default 10)" default:"10"`
+	LogMaxBackups int              `group:"global" name:"log-max-backups" help:"number of rotated log file backups to keep (0 = default 5)" default:"5"`
+	SkipPhantom   bool             `group:"global" name:"skip-phantom" help:"exclude phantom (uncreated) notes from results" default:"true"`
+	ShowTags      bool             `group:"global" name:"show-tags" help:"include tag names (#tag) in output" default:"false"`
+	ShowFilePath  bool             `group:"global" name:"show-file-path" help:"include file_path in output (use --show-file-path=false to hide)" default:"true"`
+	Version       kong.VersionFlag `group:"global" name:"version" help:"show version information"`
 
 	// Internal fields, not exposed as flags
 	Ctx           context.Context `kong:"-"`
@@ -49,7 +82,7 @@ type Globals struct {
 	Queries       []string        `kong:"-"`
 	DefaultConfig []byte          `kong:"-"`
 
-	Config kong.ConfigFlag `help:"path to config file (default: ~/.notebrain/config/config.toml)" type:"path"`
+	Config kong.ConfigFlag `group:"global" placeholder:"path" help:"path to config file (default: ~/.notebrain/config/config.toml)" type:"path"`
 }
 
 // CLI is the top-level Kong command tree.
@@ -197,6 +230,7 @@ Examples:
   # Automate CLI output for AI agents (Claude, Gemini, etc.)
   notebrain search "rust error handling" --format json --include-text`),
 		kong.UsageOnError(),
+		kong.ExplicitGroups(helpGroups()),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
 			Summary: false,
