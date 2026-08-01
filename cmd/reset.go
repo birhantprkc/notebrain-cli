@@ -26,8 +26,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	"charm.land/lipgloss/v2"
 )
 
 type ResetCmd struct {
@@ -37,8 +35,7 @@ type ResetCmd struct {
 func (c *ResetCmd) Run(globals *Globals) error {
 	if !c.Yes {
 		initStyles()
-		warnStyle := lipgloss.NewStyle().Bold(true).Foreground(colorWarn)
-		fmt.Println(warnStyle.Render(fmt.Sprintf("WARNING: This will delete ALL indexed data inside %s", globals.ChromaPath)))
+		fmt.Println(warnBoldStyle.Render(fmt.Sprintf("WARNING: This will delete ALL indexed data inside %s", globals.ChromaPath)))
 		fmt.Print("Type 'yes' to confirm: ")
 
 		reader := bufio.NewReader(os.Stdin)

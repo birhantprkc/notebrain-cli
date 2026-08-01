@@ -48,6 +48,8 @@ The `search`, `hidden`, and `boosted` commands accept these flags:
 
 > Note: Supported terminal emulators (for example, Ghostty, WezTerm, Kitty, and iTerm2) automatically enable clickable OSC 8 terminal links. You can set the `NO_HYPERLINKS=1` environment variable to disable hyperlinks for all commands.
 
+> Note: The human-readable `text` output uses colors only when stdout is a terminal. When you pipe or redirect the output (for example, `notebrain stats > file.txt`), the colors are disabled automatically. Set `NO_COLOR=1` or `TERM=dumb` to disable colors on a terminal. This keeps the text output clean for scripts and file capture.
+
 > Note: A command exits with a non-zero status when the JSONPath expression is invalid. Scripts can use the exit status to detect this error.
 
 ### Exit Codes

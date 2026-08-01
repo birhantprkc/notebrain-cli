@@ -4,13 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"charm.land/lipgloss/v2"
 )
 
 type DoctorCmd struct{}
-
-var errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
 
 func (c *DoctorCmd) Run(globals *Globals) error {
 	initStyles()
@@ -101,7 +97,6 @@ func (c *DoctorCmd) Run(globals *Globals) error {
 
 	fmt.Println()
 	if hardFailures > 0 {
-		fmt.Println("Run complete: " + errorStyle.Render(fmt.Sprintf("%d problem(s) found.", hardFailures)))
 		return fmt.Errorf("doctor: %d database problem(s) found", hardFailures)
 	}
 	fmt.Println("Run complete.")

@@ -25,8 +25,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-
-	"charm.land/lipgloss/v2"
 )
 
 type StatsCmd struct {
@@ -58,9 +56,9 @@ func (c *StatsCmd) Run(globals *Globals) error {
 	initStyles()
 	rows := fmt.Sprintf(
 		"%s  %d\n%s  %d\n%s  %d",
-		lipgloss.NewStyle().Bold(true).Render("Notes "), stats["notes"],
-		lipgloss.NewStyle().Bold(true).Render("Chunks"), stats["chunks"],
-		lipgloss.NewStyle().Bold(true).Render("Links "), stats["links"],
+		labelStyle.Render("Notes "), stats["notes"],
+		labelStyle.Render("Chunks"), stats["chunks"],
+		labelStyle.Render("Links "), stats["links"],
 	)
 
 	fmt.Println()

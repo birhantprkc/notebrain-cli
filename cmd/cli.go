@@ -71,7 +71,7 @@ type CLI struct {
 	SuggestNotes SuggestNotesCmd           `cmd:"" hidden:"" help:"internal: list indexed note slugs, one per line (used by shell completion)"`
 	Init         InitCmd                   `cmd:"" help:"Initialize NoteBrain configuration interactively"`
 	Version      VersionCmd                `cmd:"" help:"Show version information"`
-	Completion   kongcompletion.Completion `cmd:"" help:"Outputs shell code for initialising tab completions"`
+	Completion   kongcompletion.Completion `cmd:"" help:"Output shell code for initializing tab completions"`
 }
 
 // completionPredictors returns the named predictors used by shell completion.

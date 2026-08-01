@@ -205,7 +205,7 @@ func printTextResults(w io.Writer, commandName, query string, filtered []store.R
 
 		displayTitle := r.Title
 		if r.FileType == "pdf" {
-			displayTitle = "📄 [PDF] " + displayTitle
+			displayTitle = "[PDF] " + displayTitle
 		}
 
 		if r.HeadingPath != "" {

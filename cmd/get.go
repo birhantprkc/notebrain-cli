@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	"charm.land/lipgloss/v2"
 )
 
 type GetCmd struct {
@@ -44,9 +42,7 @@ func (c *GetCmd) Run(globals *Globals) error {
 		return nil
 
 	default: // "text"
-		titleStyle := lipgloss.NewStyle().Bold(true).Foreground(colorAccent)
-		metaStyle := lipgloss.NewStyle().Foreground(colorMuted)
-
+		initStyles()
 		fmt.Println(titleStyle.Render(note.Title))
 		if note.FilePath != "" {
 			fmt.Println(metaStyle.Render("Path:   " + note.FilePath))
