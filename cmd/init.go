@@ -6,9 +6,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 type InitCmd struct{}
+
+// existingConfig mirrors the config keys the wizard can prefill.
+type existingConfig struct {
+	VaultPath string `toml:"vault-path"`
+	EnablePDF bool   `toml:"enable-pdf"`
+}
 
 func (c *InitCmd) Run(globals *Globals) error {
 	initStyles()
@@ -25,6 +33,13 @@ func (c *InitCmd) Run(globals *Globals) error {
 	configDir := filepath.Join(home, ".notebrain", "config")
 	configPath := filepath.Join(configDir, "config.toml")
 
+	// Prefill from an existing config so re-running the wizard does not lose
+	// the user's previous settings.
+	var existing existingConfig
+	if data, rerr := os.ReadFile(configPath); rerr == nil {
+		_ = toml.Unmarshal(data, &existing)
+	}
+
 	if _, err := os.Stat(configPath); err == nil {
 		printWarning("Config Exists", fmt.Sprintf("A configuration file already exists at %s", configPath))
 		if !askYesNo("Do you want to overwrite it?", false) {
@@ -34,7 +49,10 @@ func (c *InitCmd) Run(globals *Globals) error {
 	}
 
 	// Ask for vault path
-	defaultVault := filepath.Join(home, "Documents", "Obsidian")
+	defaultVault := existing.VaultPath
+	if defaultVault == "" {
+		defaultVault = filepath.Join(home, "Documents", "Obsidian")
+	}
 	vaultPath := askString("Where is your Obsidian Vault located?", defaultVault)
 
 	// Expand tilde if user typed it
@@ -42,8 +60,22 @@ func (c *InitCmd) Run(globals *Globals) error {
 		vaultPath = filepath.Join(home, vaultPath[2:])
 	}
 
+	// Warn about a vault path that does not exist, so the user can fix the
+	// typo before the config is written.
+	if info, serr := os.Stat(vaultPath); serr != nil || !info.IsDir() {
+		printWarning("Vault Path", fmt.Sprintf("%q does not exist or is not a directory. Check the path.", vaultPath))
+	}
+
 	// Ask for PDF support
-	enablePDF := askYesNo("Enable text extraction for PDF attachments?", false)
+	enablePDF := askYesNo("Enable text extraction for PDF attachments?", existing.EnablePDF)
+
+	// Preview the changes before writing anything.
+	fmt.Println()
+	printWarning("Ready to write", fmt.Sprintf("vault-path = %q\nenable-pdf  = %t", vaultPath, enablePDF))
+	if !askYesNo(fmt.Sprintf("Write configuration to %s?", configPath), true) {
+		fmt.Println("Initialization aborted.")
+		return nil
+	}
 
 	// Prepare config file content
 	configStr := string(globals.DefaultConfig)
