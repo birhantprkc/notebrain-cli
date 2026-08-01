@@ -182,7 +182,7 @@ notebrain search [<query>] [flags]
 
 #### Arguments
 
-- `[<query>]` (optional): The semantic query string. You can supply multiple query strings as positional arguments for multi-hit boosting. If you specify `--tag`, you can omit this argument.
+- `[<query>]` (optional): The semantic query string. You can supply multiple query strings as positional arguments for multi-hit boosting. If you specify `--tag`, you can omit this argument. You can also pipe the query through stdin, for example `echo "my query" | notebrain search`.
 
 #### Command-Specific Flags
 

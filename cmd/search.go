@@ -24,6 +24,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -65,8 +66,32 @@ func resolveQueries(queries []string) []string {
 	return out
 }
 
+// readQueryFromStdin returns the query piped through stdin when stdin is not
+// a terminal. It reports false otherwise so the caller falls back to the
+// normal usage error.
+func readQueryFromStdin() (string, bool) {
+	info, err := os.Stdin.Stat()
+	if err != nil || info.Mode()&os.ModeCharDevice != 0 {
+		return "", false
+	}
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return "", false
+	}
+	query := strings.TrimSpace(string(data))
+	return query, query != ""
+}
+
 func (c *SearchCmd) Run(globals *Globals) error {
 	resolved := resolveQueries(c.Queries)
+	if len(resolved) == 0 && c.Tag == "" {
+		// If no positional query is given but stdin is piped (not a
+		// terminal), read the query from stdin so the CLI composes in
+		// scripts: echo "query" | notebrain search
+		if query, ok := readQueryFromStdin(); ok {
+			resolved = resolveQueries([]string{query})
+		}
+	}
 	if len(resolved) == 0 && c.Tag == "" {
 		return &UsageError{Err: fmt.Errorf("query or --tag is required")}
 	}
