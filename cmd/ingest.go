@@ -45,7 +45,7 @@ func (c *IngestCmd) Run(globals *Globals) error {
 	workers := c.Workers
 	vaultPath := globals.VaultPath
 	if vaultPath == "" {
-		return fmt.Errorf("--vault-path flag or config file setting must be specified")
+		return &UsageError{Err: fmt.Errorf("--vault-path flag or config file setting must be specified")}
 	}
 
 	glob := c.Glob

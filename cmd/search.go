@@ -70,7 +70,7 @@ func (c *SearchCmd) Run(globals *Globals) error {
 	}
 	resolved := resolveQueries(c.Queries)
 	if len(resolved) == 0 && c.Tag == "" {
-		return fmt.Errorf("query or --tag is required")
+		return &UsageError{Err: fmt.Errorf("query or --tag is required")}
 	}
 	if len(resolved) > 1 {
 		globals.Queries = resolved

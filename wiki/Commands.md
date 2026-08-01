@@ -62,7 +62,7 @@ NoteBrain uses stable exit codes. Automation and scripts can use them to tell us
 | :--- | :------------------------------------------------------------------------------------------------ |
 | `0`  | The command ran successfully.                                                                    |
 | `1`  | The command failed at runtime (for example, a missing vault, a corrupted database, or an API error). |
-| `2`  | The command-line arguments were invalid (for example, an unknown flag or an invalid `--log-level` value). |
+| `2`  | The command-line arguments were invalid (for example, an unknown flag, a missing query, a missing `--vault-path`, or an invalid `--log-level` value). |
 
 ### Logging Behavior
 
