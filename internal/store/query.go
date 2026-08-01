@@ -1448,7 +1448,7 @@ func (s *Store) GetNote(ctx context.Context, slugOrPath string) (*NoteContent, e
 	}
 
 	if len(metas) == 0 {
-		return nil, fmt.Errorf("note not found: %s", slugOrPath)
+		return nil, fmt.Errorf("note not found: %s — if the note was added recently, run 'notebrain ingest' to update the index", slugOrPath)
 	}
 
 	type chunkInfo struct {

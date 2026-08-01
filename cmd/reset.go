@@ -44,7 +44,8 @@ func (c *ResetCmd) Run(globals *Globals) error {
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 
-		if strings.TrimSpace(answer) != "yes" {
+		answer = strings.ToLower(strings.TrimSpace(answer))
+		if answer != "yes" && answer != "y" {
 			fmt.Println("Reset cancelled.")
 			return nil
 		}
