@@ -32,7 +32,7 @@ Each item in the `results` array may contain:
 | ----------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `note_slug`       | Always                          | URL-safe unique identifier derived from the file path. Used as input for graph/get commands.              |
 | `title`           | Always                          | Note title extracted from frontmatter or filename.                                                        |
-| `file_path`       | When `--show-file-path` is passed | Relative file path within the vault. Omitted by default to save tokens.                                   |
+| `file_path`       | Always (unless `--show-file-path=false`) | Relative file path within the vault. Included by default; hide with `--show-file-path=false` to save tokens. |
 | `score`           | Always                          | Similarity score (0–1) for semantic search; hop count for graph connections. Rounded to 4 decimal places. |
 | `chunk_index`     | search, hidden, boosted         | Which chunk of the note matched the query (0-indexed).                                                    |
 | `tags`            | When note has tags              | Array of tag strings (e.g., `["#Architecture", "#Go"]`).                                                  |

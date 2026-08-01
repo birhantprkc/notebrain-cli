@@ -39,7 +39,7 @@ notebrain stats --format=json
    - Matching text snippets: `--jsonpath="$.results[*].text"`
    - Surrounding chunk context: `--jsonpath="$.results[*].context"`
    - When scanning tabular lists without text content, use `--format tsv` to drop repeating JSON key names.
-   - When outputting full JSON (i.e., not using `--jsonpath`), the `file_path` field is omitted by default to cut token footprint by ~40–50%. Pass `--show-file-path` only if strictly needed.
+   - When outputting full JSON (i.e., not using `--jsonpath`), `file_path` is included by default. Pass `--show-file-path=false` to hide it and cut token footprint by roughly 40–50%.
 
 5. **Intelligent Query Splitting**: When researching compound questions or orthogonal topics (e.g., comparing two technologies), split the query into distinct positional arguments to activate multi-hit boosting:
    - **Positional arguments**: `notebrain search "redis pubsub" "kafka brokers" --limit 5 --format json`
@@ -94,7 +94,7 @@ Only when the task specifically requires exploring graph topology, backlinks, or
 | "Find notes with tag X and its child tags"             | `tags`        | `notebrain tags "#Tag" --children --format json`                                       |
 | "What notes share tags with X?"                        | `tags`        | `notebrain tags "<slug>" --shared --min-shared 1 --format json`                        |
 
-> **Need detailed flag descriptions or output schemas?** Read [references/flags.md](references/flags.md) for full flag tables and [references/schema.md](references/schema.md) for JSON envelope fields and TSV formatting.
+> **Need detailed flag descriptions or output schemas?** Read [references/flags.md](references/flags.md) for full flag tables and [references/schema.md](references/schema.md) for JSON envelope fields and TSV formatting. For result filters (`--section`, `--tag`, `--has-tasks`, `--has-code`, `--min-score`, `--skip-phantom`), see the `search` table in references/flags.md.
 
 ## Response Format
 
