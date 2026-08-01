@@ -309,6 +309,38 @@ func TestPrintResultsFormatted_Formats(t *testing.T) {
 	}
 }
 
+func TestPrintTSVResults_EscapesMultilineText(t *testing.T) {
+	var buf bytes.Buffer
+	results := []store.Result{
+		{
+			NoteSlug:    "tab-note",
+			Title:       "Tab \t Note",
+			FilePath:    "notes/tab.md",
+			Score:       0.5,
+			HeadingPath: "Section\nOne",
+			Text:        "first line\nsecond\tline",
+		},
+	}
+	globals := &Globals{Format: "tsv"}
+	flags := &ChunkDisplayFlags{IncludeText: true}
+	printResultsFormattedToWriter(&buf, "search", "query", "query", results, globals, flags)
+	out := buf.String()
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("Expected exactly 2 lines (header + row) in TSV output, got %d: %q", len(lines), out)
+	}
+	if !strings.Contains(out, `Tab \t Note`) {
+		t.Errorf("Expected tab escaped in title, got %q", out)
+	}
+	if !strings.Contains(out, `Section\nOne`) {
+		t.Errorf("Expected newline escaped in heading_path, got %q", out)
+	}
+	if !strings.Contains(out, `first line\nsecond\tline`) {
+		t.Errorf("Expected newline and tab escaped in text, got %q", out)
+	}
+}
+
 func TestPrintResultsFormatted_MinScore(t *testing.T) {
 	var buf bytes.Buffer
 	results := []store.Result{

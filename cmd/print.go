@@ -133,12 +133,24 @@ func printJSONResults(w io.Writer, commandName, query string, filtered []store.R
 	_ = enc.Encode(env)
 }
 
+// tsvEscape escapes characters that would break a tab-separated record:
+// tab, newline, and carriage return. Field content stays on one line so
+// line-based parsers (wc -l, cut, awk -F'\t') keep working.
+func tsvEscape(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, "\t", `\t`)
+	s = strings.ReplaceAll(s, "\n", `\n`)
+	s = strings.ReplaceAll(s, "\r", `\r`)
+	return s
+}
+
 func printTSVResults(w io.Writer, filtered []store.Result) {
 	_, _ = fmt.Fprintln(w, "slug\ttitle\tfile_path\tscore\ttags\textra\theading_path\ttext")
 	for _, r := range filtered {
 		tagsStr := formatTags(r.Tags)
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%f\t%s\t%s\t%s\t%s\n",
-			r.NoteSlug, r.Title, r.FilePath, r.Score, tagsStr, r.Extra, r.HeadingPath, r.Text)
+			tsvEscape(r.NoteSlug), tsvEscape(r.Title), tsvEscape(r.FilePath), r.Score,
+			tsvEscape(tagsStr), tsvEscape(r.Extra), tsvEscape(r.HeadingPath), tsvEscape(r.Text))
 	}
 }
 

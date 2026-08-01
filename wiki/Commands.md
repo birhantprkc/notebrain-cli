@@ -30,7 +30,9 @@ You can apply these flags to `notebrain` before a subcommand (for example, `note
 | `--log-max-size-mb` | `integer` | `10`                              | The max size of each log file in MiB before rotation (`0` uses the default `10`).                                  |
 | `--log-max-backups` | `integer` | `5`                               | The number of rotated log file backups to keep (`0` uses the default `5`). Rotated files are named `<file>.1`, `<file>.2`, and so on. |
 | `--skip-phantom`    | `boolean` | `true`                            | Excludes phantom (uncreated) notes from the results. Use `--skip-phantom=false` to include them.                 |
-| `--format`          | `string`  | `text`                            | The output format: `text` (standard text), `json` (structured JSON), or `tsv` (tab-separated values).     |
+| `--format`          | `string`  | `text`                            | The output format: `text` (standard text), `json` (structured JSON), or `tsv` (tab-separated values). |
+
+> Note: In `tsv` output, the `text` field escapes tabs and line breaks (as `\t` and `\n`). This keeps every result on a single line for line-based parsers. Set `--include-text=false` to omit the `text` field entirely.
 | `--jsonpath`        | `string`  | _(None)_                          | A JSONPath expression to extract and filter fields from the JSON output (for example, `$.results[0].note_slug`). |
 | `--show-tags`       | `boolean` | `false`                           | Includes tag names (`#Tag/Subtag`) in the search and graph outputs.                                               |
 | `--show-file-path`  | `boolean` | `true`                            | Includes `file_path` in outputs. You can use `--show-file-path=false` to omit it.                                           |

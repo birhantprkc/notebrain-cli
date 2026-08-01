@@ -53,6 +53,12 @@ func (c *StatsCmd) Run(globals *Globals) error {
 		return enc.Encode(stats)
 	}
 
+	if globals.Format == formatTSV {
+		fmt.Println("notes\tchunks\tlinks")
+		fmt.Printf("%d\t%d\t%d\n", stats["notes"], stats["chunks"], stats["links"])
+		return nil
+	}
+
 	initStyles()
 	rows := fmt.Sprintf(
 		"%s  %d\n%s  %d\n%s  %d",
