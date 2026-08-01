@@ -29,10 +29,13 @@ import (
 )
 
 type TagsCmd struct {
-	Query     string `arg:"" help:"Tag name to search for (e.g. 'kubernetes'), or note slug/title if --shared is used." completion-predictor:"note-slug"`
+	Query     string `arg:"" help:"Tag name to search for (e.g. 'kubernetes'), or note slug/title if --shared or --for-note is used." completion-predictor:"note-slug"`
 	Shared    bool   `group:"tags" help:"Find notes sharing tags with the given note instead of searching by tag name." default:"false"`
+	ForNote   bool   `group:"tags" name:"for-note" help:"Alias for --shared."`
 	Children  bool   `group:"tags" help:"Include child tags in the hierarchy (e.g. 'kubernetes' also matches 'kubernetes/cka')." default:"false"`
-	MinShared int    `group:"tags" help:"Minimum shared tags to include a result (only with --shared)." default:"1"`
+	MinShared int    `group:"tags" help:"Minimum shared tags to include a result (only with --shared/--for-note)." default:"1"`
+	Limit     int    `group:"tags" help:"maximum number of results" default:"50"`
+	ChunkDisplayFlags
 }
 
 func (c *TagsCmd) Run(globals *Globals) error {
@@ -43,7 +46,7 @@ func (c *TagsCmd) Run(globals *Globals) error {
 	}
 	defer func() { _ = st.Close() }()
 
-	if c.Shared {
+	if c.Shared || c.ForNote {
 		var targetSlug string
 		targetSlug, err = st.ResolveNoteSlug(ctx, c.Query)
 		if err != nil {
@@ -55,15 +58,24 @@ func (c *TagsCmd) Run(globals *Globals) error {
 		if err != nil {
 			return err
 		}
+		if c.Limit > 0 && len(nodes) > c.Limit {
+			nodes = nodes[:c.Limit]
+		}
+		if err = st.PopulateContext(ctx, nodes, c.ContextWindow); err != nil {
+			return fmt.Errorf("populate context: %w", err)
+		}
 
-		return printResultsFormatted("tags --shared", fmt.Sprintf("Notes sharing tags with: %q (slug: %s) [Min Shared: %d]", c.Query, targetSlug, c.MinShared), targetSlug, nodes, globals, nil)
+		return printResultsFormatted("tags --shared", fmt.Sprintf("Notes sharing tags with: %q (slug: %s) [Min Shared: %d]", c.Query, targetSlug, c.MinShared), targetSlug, nodes, globals, &c.ChunkDisplayFlags)
 	}
 
 	// Direct tag search (default)
 	normalizedTag := normalizeTagInput(c.Query)
-	nodes, err := st.TagSearch(ctx, normalizedTag, 999999, c.Children, nil, false)
+	nodes, err := st.TagSearch(ctx, normalizedTag, c.Limit, c.Children, nil, c.IncludeText)
 	if err != nil {
 		return err
+	}
+	if err := st.PopulateContext(ctx, nodes, c.ContextWindow); err != nil {
+		return fmt.Errorf("populate context: %w", err)
 	}
 
 	commandName := "tags"
@@ -73,7 +85,7 @@ func (c *TagsCmd) Run(globals *Globals) error {
 		title = fmt.Sprintf("Notes containing tag: %q (and children tags)", c.Query)
 	}
 
-	return printResultsFormatted(commandName, title, "", nodes, globals, nil)
+	return printResultsFormatted(commandName, title, "", nodes, globals, &c.ChunkDisplayFlags)
 }
 
 func normalizeTagInput(input string) string {

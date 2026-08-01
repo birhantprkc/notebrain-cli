@@ -30,17 +30,22 @@ import (
 )
 
 type HiddenCmd struct {
-	Note          string `arg:"" help:"note slug, title, or file path (auto-resolved)" completion-predictor:"note-slug"`
-	Limit         int    `group:"hidden" help:"maximum number of hidden connections to return" default:"10"`
-	Deep          bool   `group:"hidden" help:"analyze each chunk individually for granular section-level matches"`
-	TopK          int    `group:"hidden" name:"top-k" help:"chunks to evaluate per candidate note in --deep mode" default:"3"`
-	IncludeLinked bool   `group:"hidden" name:"include-linked" help:"include notes even if they are already linked directly or indirectly"`
+	Note            string `arg:"" help:"note slug, title, or file path (auto-resolved)" completion-predictor:"note-slug"`
+	Limit           int    `group:"hidden" help:"maximum number of hidden connections to return" default:"10"`
+	Deep            bool   `group:"hidden" help:"analyze each chunk individually for granular section-level matches"`
+	TopK            int    `group:"hidden" name:"top-k" help:"chunks to evaluate per candidate note in --deep mode (deprecated alias: --candidate-chunks)" default:"3"`
+	CandidateChunks int    `group:"hidden" name:"candidate-chunks" help:"chunks to evaluate per candidate note in --deep mode (replaces --top-k)"`
+	IncludeLinked   bool   `group:"hidden" name:"include-linked" help:"include notes even if they are already linked directly or indirectly"`
 	ChunkDisplayFlags
 }
 
 func (c *HiddenCmd) Run(globals *Globals) error {
 	targetNote := c.Note
 	limit := c.Limit
+	topK := c.TopK
+	if c.CandidateChunks != 0 {
+		topK = c.CandidateChunks
+	}
 
 	ctx := globals.Ctx
 	st, err := openStore(ctx, globals)
@@ -61,7 +66,7 @@ func (c *HiddenCmd) Run(globals *Globals) error {
 			results    []store.Result
 			seedChunks []string
 		)
-		results, seedChunks, err = st.HiddenConnectionsDeep(ctx, targetSlug, limit, c.TopK, c.IncludeText, opts...)
+		results, seedChunks, err = st.HiddenConnectionsDeep(ctx, targetSlug, limit, topK, c.IncludeText, opts...)
 		if err != nil {
 			return err
 		}

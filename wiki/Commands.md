@@ -322,7 +322,8 @@ notebrain hidden <note> [flags]
 | :----------------- | :-------- | :------ | :----------------------------------------------------------------------------------------------------------------------------------- |
 | `--deep`           | `boolean` | `false` | Does a chunk-by-chunk analysis across individual note sections with the stored vectors.                                       |
 | `--include-linked` | `boolean` | `false` | Includes notes that already have direct or indirect links in the hidden connections output. This strictly excludes self-references. |
-| `--top-k`          | `integer` | `3`     | The maximum number of matching target sections to evaluate and show for each candidate note (in `--deep` mode).                                      |
+| `--candidate-chunks` | `integer` | _(None)_ | The maximum number of matching target sections to evaluate and show for each candidate note (in `--deep` mode). Replaces `--top-k`. |
+| `--top-k`          | `integer` | `3`     | A deprecated alias for `--candidate-chunks`.                                                                                                      |
 | `--limit`          | `integer` | `10`    | The maximum number of hidden connections to show.                                                                                      |
 
 #### Examples
@@ -356,8 +357,12 @@ notebrain tags <query> [flags]
 | Flag           | Type      | Default | Description                                                                                               |
 | :------------- | :-------- | :------ | :-------------------------------------------------------------------------------------------------------- |
 | `--shared`     | `boolean` | `false` | Uses the query as a note slug or title to find other notes that share its tags.                                |
+| `--for-note`   | `boolean` | `false` | An alias for `--shared`.                                                                                  |
 | `--children`   | `boolean` | `false` | Includes child tags in the hierarchical structure (for example, a search for 'kubernetes' also finds 'kubernetes/cka'). |
-| `--min-shared` | `integer` | `1`     | The minimum number of shared tags necessary to show a result (only when `--shared` is active).                 |
+| `--min-shared` | `integer` | `1`     | The minimum number of shared tags necessary to show a result (only when `--shared` or `--for-note` is active).                 |
+| `--limit`      | `integer` | `50`    | The maximum number of results to show.                                                                        |
+
+`tags` also accepts the shared output flags `--include-text`, `--context-window`, and `--min-score`.
 
 #### Examples
 
