@@ -13,6 +13,7 @@ require (
 	github.com/jotaen/kong-completion v0.0.14
 	github.com/klippa-app/go-pdfium v1.19.6
 	github.com/pelletier/go-toml/v2 v2.4.3
+	github.com/posener/complete v1.2.3
 	github.com/soypat/goldmark-latex v0.1.4
 	github.com/yuin/goldmark v1.8.5
 	github.com/yuin/goldmark-meta v1.1.0
@@ -52,7 +53,6 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/posener/complete v1.2.3 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/riywo/loginshell v0.0.0-20200815045211-7d26008be1ab // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
