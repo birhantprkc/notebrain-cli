@@ -194,6 +194,66 @@ func TestHiddenConnections_WithIncludeLinked(t *testing.T) {
 	}
 }
 
+func TestHiddenConnectionsDeep_HighCandidateChunksDoesNotHideUnlinkedNotes(t *testing.T) {
+	ctx, st, _ := setupStoreTest(t)
+
+	// note-b (linked to note-a in the fixture) gets ten maximally similar
+	// chunks, note-d (also linked) gets five slightly lower ones. Both
+	// would fill the old fixed fetch window and be filtered out, hiding
+	// the weaker-but-unlinked note-c. Links are stored per note, so
+	// note-d is linked to note-a via its own outgoing link.
+	chunks := []store.ChunkRecord{
+		{
+			ID:         "note-c:0",
+			NoteSlug:   "note-c",
+			Title:      "Note C",
+			FilePath:   "Note C.md",
+			ChunkIndex: 0,
+			Text:       "text about golang",
+			Tags:       []string{"go"},
+			Embedding:  []float32{0.9, 0.0, 0.0},
+		},
+	}
+	for i := range 10 {
+		chunks = append(chunks, store.ChunkRecord{
+			ID:         fmt.Sprintf("note-b:%d", i+1),
+			NoteSlug:   "note-b",
+			Title:      "Note B",
+			FilePath:   "Note B.md",
+			ChunkIndex: i + 1,
+			Text:       "more golang text",
+			Tags:       []string{"go"},
+			Embedding:  []float32{1.0, 0.0, 0.0},
+		})
+	}
+	for i := range 5 {
+		chunks = append(chunks, store.ChunkRecord{
+			ID:         fmt.Sprintf("note-d:%d", i),
+			NoteSlug:   "note-d",
+			Title:      "Note D",
+			FilePath:   "Note D.md",
+			ChunkIndex: i,
+			Text:       "golang related text",
+			Tags:       []string{"go"},
+			Embedding:  []float32{0.98, 0.0, 0.0},
+		})
+	}
+	seedChunks(t, ctx, st, chunks, map[string][]string{"note-d": {"note-a"}})
+
+	hidden, _, err := st.HiddenConnectionsDeep(ctx, "note-a", 3, 10, false)
+	if err != nil {
+		t.Fatalf("HiddenConnectionsDeep failed: %v", err)
+	}
+	if len(hidden) == 0 || hidden[0].NoteSlug != "note-c" {
+		t.Errorf("Expected unlinked note-c to surface despite linked notes dominating the window, got %v", hidden)
+	}
+	for _, r := range hidden {
+		if r.NoteSlug == "note-b" || r.NoteSlug == "note-d" {
+			t.Errorf("linked notes must never appear in hidden results, got %v", hidden)
+		}
+	}
+}
+
 func TestHiddenConnectionsDeep_WithIncludeLinked(t *testing.T) {
 	ctx, st, _ := setupStoreTest(t)
 	hiddenLinked, _, err := st.HiddenConnectionsDeep(ctx, "note-a", 10, 3, false, store.WithIncludeLinked(true))

@@ -839,9 +839,26 @@ func (s *Store) HiddenConnectionsDeep(ctx context.Context, seedSlug string, limi
 	}
 
 	// 3. Wide multi-query semantic search across all vault chunks.
-	// The limit here is internal fetch headroom, already capped by
-	// clampSemanticLimit above, so MultiSemanticSearch stays quiet.
-	candidates, err := s.MultiSemanticSearch(ctx, queryVecs, seedLabels, min(max(limit*2, 15), ffiSafeSemanticLimit), topKPerNote, nil, includeText)
+	// The fetch headroom below is capped by clampSemanticLimit inside
+	// MultiSemanticSearch. It scales with topKPerNote so per-note
+	// deduplication cannot concentrate the window onto one or two notes.
+	headroom := min(max(limit*2, limit*topKPerNote, 15), ffiSafeSemanticLimit)
+
+	// Exclude already-linked notes at query time so the fetch window is
+	// not consumed by notes that the linked-filter below would drop.
+	// Without this, a linked note sharing many sections with the seed can
+	// crowd out every unlinked candidate (--candidate-chunks >= --limit).
+	var whereFilter chroma.WhereFilter
+	if !opts.IncludeLinked {
+		excluded := make([]string, 0, len(linked))
+		for slug := range linked {
+			excluded = append(excluded, slug)
+		}
+		sort.Strings(excluded)
+		whereFilter = chroma.NinString("note_slug", excluded...)
+	}
+
+	candidates, err := s.MultiSemanticSearch(ctx, queryVecs, seedLabels, headroom, topKPerNote, whereFilter, includeText)
 	if err != nil {
 		return nil, nil, fmt.Errorf("hidden connections deep: %w", err)
 	}
