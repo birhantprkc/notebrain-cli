@@ -1,6 +1,7 @@
 ---
 description: Use NoteBrain to search, summarize, and explore an Obsidian vault. Invoke this agent whenever the user asks about their notes, knowledge base, Obsidian vault, semantic search, related ideas, graph relationships, or wants to discover, summarize, or connect information from their vault.
 mode: all
+model: opencode/qwen3.6-plus-free
 temperature: 0.3
 color: accent
 permission:
