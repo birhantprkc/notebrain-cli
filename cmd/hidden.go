@@ -89,7 +89,7 @@ func (c *HiddenCmd) Run(globals *Globals) error {
 	}
 	defer func() { _ = emb.Close() }()
 
-	slog.Info("initializing embedding model")
+	slog.Debug("initializing embedding model")
 	qVec, err := emb.Embed(ctx, targetNote) // Embed the note title as the search context
 	if err != nil {
 		return err

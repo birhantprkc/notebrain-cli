@@ -70,7 +70,7 @@ func (c *BoostedCmd) Run(globals *Globals) error {
 	}
 	defer func() { _ = emb.Close() }()
 
-	slog.Info("initializing embedding model")
+	slog.Debug("initializing embedding model")
 	qVec, err := emb.Embed(ctx, query)
 	if err != nil {
 		return err

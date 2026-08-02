@@ -109,7 +109,7 @@ func (c *SearchCmd) Run(globals *Globals) error {
 	}
 	defer func() { _ = st.Close() }()
 
-	slog.Info("initializing embedding model")
+	slog.Debug("initializing embedding model")
 	emb, err := embedder.NewLocalEmbedder()
 	if err != nil {
 		return err
