@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.12.0] - 2026-08-02
+
+### Added
+- **Unified JSON Envelope**: `get` and `stats` JSON output is now wrapped in the same command envelope used by `search` (`feat(output)`).
+- **Stdin Query Support**: `search` now accepts the query from stdin when piped, enabling shell pipelines (`feat(search)`).
+- **Setup Wizard Enhancements**: The `init` wizard now prefills detected defaults, validates input, and previews the planned configuration before applying it (`feat(init)`).
+- **Shared Tag Flags**: Tags are now aligned with the shared query flags, and `--top-k` is clarified as a hidden flag (`feat(cmd)`).
+- **Ingest Progress**: Ingestion reports periodic info-level progress, logs embedding model warmup, and warns after the validate step (`feat(ingest)`).
+- **Titled Help Sections**: `--help` output now groups flags under titled sections and fixes placeholder rendering (`feat(help)`).
+- **TTY-Aware Colors**: Colors are disabled on non-TTY stdout, and the PDF emoji was dropped from output (`feat(ui)`).
+- **Hardened Logging**: Improved logging and error handling across the CLI (`feat(cli)`).
+
+### Fixed
+- **Hidden `--deep`**: Unlinked notes are no longer hidden when `--deep` is passed (`fix(store)`).
+- **Exit Codes**: Missing query and missing vault path now exit with code 2 (`fix(cli)`).
+- **TSV Output**: TSV records stay on one line, and `stats` supports TSV output (`fix(output)`).
+- **Recovery Hints**: Error messages now include recovery hints, and the reset confirmation accepts `y` (`fix(errors)`).
+- **Log Noise**: The embedding model warmup log is demoted to debug level (`fix(cmd)`).
+
 ## [v2.11.0] - 2026-08-01
 
 ### Added
