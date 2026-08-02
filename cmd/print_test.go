@@ -461,6 +461,37 @@ func TestFilterResults_IncludeText(t *testing.T) {
 	}
 }
 
+func TestPrintResultsFormatted_HeaderWidth(t *testing.T) {
+	var buf bytes.Buffer
+	results := []store.Result{
+		{NoteSlug: "test-note", Title: "Test Note", Score: 0.9},
+	}
+	globals := &Globals{Format: "text"}
+
+	orig := getTerminalWidth
+	defer func() { getTerminalWidth = orig }()
+	getTerminalWidth = func() int { return 80 }
+
+	longQuery := `Deep chunk-by-chunk hidden connections for: "00 fleeting notes/hands-on-llm/1 - An Introduction to LLM" (slug: 00fleeting-noteshands-on-llm1-an-introduction-to-llm) [31 target chunks analyzed]`
+	printResultsFormattedToWriter(&buf, "hidden --deep", longQuery, longQuery, results, globals, nil)
+
+	lines := strings.Split(buf.String(), "\n")
+	separatorLines := 0
+	for _, ln := range lines {
+		w := ansi.StringWidth(ln)
+		trimmed := strings.Trim(ln, "─")
+		if w > 0 && w == len([]rune(ln)) && trimmed == "" {
+			separatorLines++
+			if ansi.StringWidth(ln) != 80 {
+				t.Errorf("Expected header separator of width 80, got %d: %q", ansi.StringWidth(ln), ln)
+			}
+		}
+	}
+	if separatorLines != 1 {
+		t.Errorf("Expected exactly 1 header separator line, got %d:\n%s", separatorLines, buf.String())
+	}
+}
+
 func TestPrintResultsFormatted_HyperlinkFooter(t *testing.T) {
 	var buf bytes.Buffer
 	results := []store.Result{

@@ -192,7 +192,13 @@ func emptyResultHint(commandName string) string {
 }
 
 func printTextResults(w io.Writer, commandName, query string, filtered []store.Result, globals *Globals) {
-	_, _ = fmt.Fprintln(w, headerStyle.Render(query))
+	termWidth := getTerminalWidth()
+
+	header := headerStyle
+	if termWidth > 0 {
+		header = header.Width(termWidth)
+	}
+	_, _ = fmt.Fprintln(w, header.Render(query))
 
 	if len(filtered) == 0 {
 		hint := emptyResultHint(commandName)
@@ -205,7 +211,6 @@ func printTextResults(w io.Writer, commandName, query string, filtered []store.R
 	}
 
 	useLinks := hyperlinkSupported(globals) && globals.ShowFilePath
-	termWidth := getTerminalWidth()
 
 	noteCounts := make(map[string]int, len(filtered))
 	for _, r := range filtered {
