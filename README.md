@@ -9,7 +9,7 @@ NoteBrain includes an [AI agent skill](wiki/Skill_Usage.md) and an [OpenCode Age
 [![Release](https://github.com/nmdra/notebrain-cli/actions/workflows/release.yml/badge.svg)](https://github.com/nmdra/notebrain-cli/actions/workflows/release.yml)
 [![GitHub release](https://img.shields.io/github/v/release/nmdra/notebrain-cli)](https://github.com/nmdra/notebrain-cli/releases)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/nmdra/notebrain-cli)
-[![License: MIT](https://img.shields.io/github/license/nmdra/notebrain-cli)](https://github.com/nmdra/notebrain-cli/blob/main/LICENSE)
+[![License: MIT](https://img.shields.io/github/license/nmdra/notebrain-cli)](https://github.com/nmdra/notebrain-cli/blob/master/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/nmdra/notebrain-cli?style=social)](https://github.com/nmdra/notebrain-cli/stargazers)
 
 <p align="center">
@@ -18,8 +18,8 @@ NoteBrain includes an [AI agent skill](wiki/Skill_Usage.md) and an [OpenCode Age
 
 > [!NOTE]
 > **Hi, I'm [Nimendra](https://nimendra.xyz).**  
-> I use [Obsidian](https://obsidian.md/) daily as my primary note-taking solution. When AI agents emerged, I wanted to use my Obsidian vault as an RAG system.But most existing solutions don't fulfill my requirements.  
-> While researching, I came across [this article](https://motherduck.com/blog/obsidian-rag-duckdb-motherduck/), which inspired this project.So I built this for my personal use. While you can use it directly, I highly encourage you to fork and modify this solution for your own use case.
+> I use [Obsidian](https://obsidian.md/) daily as my primary note-taking solution. When AI agents emerged, I wanted to use my Obsidian vault as an RAG system. But most existing solutions don't fulfill my requirements.  
+> While researching, I came across [this article](https://motherduck.com/blog/obsidian-rag-duckdb-motherduck/), which inspired this project. So I built this for my personal use. While you can use it directly, I highly encourage you to fork and modify this solution for your own use case.
 >
 > > _I don't use Windows or macOS, so those versions aren't shipped directly, but you can compile the binary using the source code._
 
@@ -41,7 +41,7 @@ NoteBrain includes an [AI agent skill](wiki/Skill_Usage.md) and an [OpenCode Age
 
 ### Internals
 
-- **PDF Support**: NoteBrain extracts text from PDFs with **[PDFium-go](https://github.com/klippa-app/go-pdfium)**. It converts the raw text into structured Markdown with an LLM API (OpenRouter or DeepSeek). This makes chunks that match native markdown notes.
+- **PDF Support**: NoteBrain extracts text from PDFs with **[PDFium-go](https://github.com/klippa-app/go-pdfium)**. It converts the raw text into structured Markdown with an LLM API. The API supports OpenRouter, DeepSeek, OpenAI, Gemini, and local Ollama. This makes chunks that match native markdown notes.
 - **Goldmark AST-Aware Chunking**: NoteBrain splits markdown by header hierarchy. It preserves lists, GFM tables, blockquotes, callouts, and code blocks.
 - **Embedded ChromaDB**: NoteBrain writes vectors to the disk with [`chroma-go`](https://github.com/amikos-tech/chroma-go).
 - **Incremental Ingestion**: NoteBrain calculates SHA-256 content hashes. It ignores unmodified notes in milliseconds during subsequent runs.
@@ -144,7 +144,7 @@ notebrain get "$SLUG" --jsonpath="$.text"
 Use the built-in [AI agent skill](wiki/Skill_Usage.md) and [OpenCode Agent Configuration](wiki/OpenCode_Integration.md) to retrieve knowledge.
 
 > [!TIP]
-> Use the [Pi Agent](wiki/Pi_Agent.md) with the provided skill. The agent gives better results with low-cost models (for example, [DeepSeek V4 Flash](https://www.deepseek.com/), [tencent hy3](https://hy.tencent.com/), or [Gemini Flash 3.6](https://ai.google.dev/gemini-api/docs/flash)). It does not consume unnecessary tokens. It increases cache hit rates and decreases costs.
+> Use the [Pi Agent](https://pi.dev) with the provided skill. The agent gives better results with low-cost models (for example, [DeepSeek V4 Flash](https://www.deepseek.com/), [tencent hy3](https://hy.tencent.com/), or [Gemini Flash 3.6](https://ai.google.dev/gemini-api/docs/flash)). It does not consume unnecessary tokens. It increases cache hit rates and decreases costs.
 >
 > For LLM models, use the medium or low thinking mode to get fast responses.
 
@@ -191,6 +191,7 @@ To uninstall NoteBrain, remove the `notebrain` binary and delete the `~/.notebra
 | [Installation](wiki/Installation.md)                       | Prerequisites, pre-built binaries, and compilation commands              |
 | [Commands Reference](wiki/Commands.md)                     | Full CLI command and flag information                                    |
 | [Architecture](wiki/Architecture.md)                       | Internal functions: chunking pipeline, embeddings, and ChromaDB schema   |
+| [PDF Ingestion](wiki/PDF_Ingestion.md)                     | LLM-based text extraction from PDF attachments                          |
 | [Scheduled Ingestion](wiki/Scheduled_Ingestion.md)         | Instructions for cron and systemd timers to index data in the background |
 | [Shell Completion](wiki/Shell_Completion.md)               | Tab completion setup for bash, zsh, and fish                             |
 | [AI Agent Skill Usage](wiki/Skill_Usage.md)                | Instructions for the built-in AI agent skill                             |

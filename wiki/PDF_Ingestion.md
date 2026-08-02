@@ -18,6 +18,8 @@ NoteBrain detects the provider automatically. It uses the model prefix or the av
 | **Gemini**         | `GEMINI_API_KEY`     | `--llm-model="gemini-3.5-flash-lite"` |
 | **Ollama** (Local) | `OLLAMA_HOST`        | `--llm-model="ollama/llama3"`         |
 
+> Note: For Ollama, set `OLLAMA_HOST`, `OLLAMA_API_KEY`, or both. When both are set, `OLLAMA_HOST` provides the URL.
+
 ## How to Enable
 
 To index PDFs during an ingestion run, provide the `--enable-pdf` and `--llm-model` flags:

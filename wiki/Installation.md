@@ -8,9 +8,11 @@
 
 ## Install Pre-built Binaries (Recommended)
 
-1. Download the pre-built Linux or macOS binaries from the [GitHub Releases](https://github.com/nmdra/notebrain-cli/releases) page.
+1. Download the pre-built Linux binary from the [GitHub Releases](https://github.com/nmdra/notebrain-cli/releases) page.
 2. Extract the archive.
 3. Put the `notebrain` binary in your `$PATH`.
+
+Note: Pre-built macOS and Windows binaries are not shipped. To use macOS or Windows, build the binary from the source code.
 
 ## Build from Source
 

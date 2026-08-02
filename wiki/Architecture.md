@@ -19,12 +19,11 @@ graph TD
     end
 
     subgraph Core ["Core Engine (internal/)"]
-        Config["Config Resolver (config/)"]
-        Obsidian["Obsidian CLI Client (obsidian/)"]
+        Config["Config Resolver (configfile/)"]
 
         subgraph IngestionPipeline ["Ingestion Pipeline"]
             Parser["Markdown Parser & PDF LLM Extractor (parser/ & llmparse/)"]
-            Embedder["Embedding Backend: MiniLM / Ollama (embedder/)"]
+            Embedder["Embedding Backend: ONNX MiniLM (embedder/)"]
             Ingest["Ingestion Coordinator (ingest/)"]
         end
 
@@ -55,7 +54,7 @@ graph TD
 
     CmdSearch --> Query
     CmdGraph --> Graph
-    CmdVault --> ChromaStore & Obsidian
+    CmdVault --> ChromaStore
 
     Query --> Embedder
     Query --> ChromaStore
@@ -159,13 +158,12 @@ This collection stores directed edges. These edges represent wikilinks and Markd
 ## 4. Subsystems and Components
 
 - **CLI Layer (`cmd/`)**: Kong builds this layer for command-line parsing and flag resolution. The CLI layer supports a strict two-tier configuration hierarchy. CLI flags override the TOML configuration file (`~/.notebrain/config/config.toml`).
-- **Configuration (`internal/configfile` and `config/`)**: This subsystem manages the loading of TOML configuration with Kong resolvers. It supports normalized key lookups (`snake_case` and `kebab-case`). It resolves flags without `.env` files or application environment variables.
-- **Embedder (`internal/embedder`)**: This subsystem manages the local embedding models. It supports embedded ONNX MiniLM sentence embeddings or external Ollama service backends.
+- **Configuration (`internal/configfile`)**: This subsystem manages the loading of TOML configuration with Kong resolvers. It supports normalized key lookups (`snake_case` and `kebab-case`). It resolves flags without `.env` files or application environment variables.
+- **Embedder (`internal/embedder`)**: This subsystem manages the local embedding model. It runs the embedded ONNX MiniLM sentence embeddings model.
 - **Parser (`internal/parser`)**: This subsystem reads Markdown files from the Obsidian vault. It extracts YAML frontmatter and properties. It parses wikilinks and standard Markdown links. It identifies task checkboxes and tables. It splits note text into semantic chunks. It preserves structural Markdown syntax across chunks. This syntax includes tight lists (`1. `, `- `), task checkboxes (`[ ] `, `[x] `), blockquotes, callout headers (`> [!NOTE]`), and tables. Distinct structural blocks are cleanly separated by `\n\n`. Attachment embeds become `[image]` or `[attachment]` markers in the embedding text.
 - **PDF Extractor (`internal/pdfextract` and `internal/llmparse`)**: This subsystem extracts text from PDFs. It uses a WASM-compiled PDFium backend. The system sends the raw text to an LLM API with `llmparse`. This converts the text into structured markdown. This process guarantees that PDF chunks share the same layout as markdown notes.
 - **Ingest (`internal/ingest`)**: This subsystem handles multi-worker concurrent directory walking. It reads `.md` and `.pdf` files. It calls the parser and extractor. It generates embeddings. It coordinates atomic note updates under a single store mutex lock.
 - **Store (`internal/store`)**: This is the ChromaDB wrapper. It abstracts collection creation, chunk upsertion, and link deduplication. It exposes all graph and semantic queries.
-- **Obsidian Client (`internal/obsidian`)**: This client interacts with the Obsidian CLI for vault operations and note inspection.
 
 ---
 

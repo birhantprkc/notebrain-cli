@@ -222,7 +222,7 @@ Examples:
   notebrain search "how to configure neovim" --limit 5
 
   # Graph-boosted search (combines semantic similarity + wikilink connections)
-  notebrain boosted "docker setup"
+  notebrain boosted "docker setup" --seed "project alpha"
 
   # Find hidden connections between notes that are not explicitly linked
   notebrain hidden "project alpha"

@@ -20,6 +20,9 @@
 # Default CLI output formatting option ("text", "json", or "tsv").
 # format = "text" # default: "text"
 
+# Extract specific fields using JSONPath when format = "json" (e.g., "$.results[*].note_slug").
+# jsonpath = "" # default: ""
+
 # Logging severity level ("debug", "info", "warn", "error").
 # Precedence: flag > config > NOTEBRAIN_LOG_LEVEL env var > "info".
 # log-level = "info" # default: "info"

@@ -35,6 +35,26 @@ You can apply these flags to `notebrain` before a subcommand (for example, `note
 | `--format`          | `string`  | `text`                            | The output format: `text` (standard text), `json` (structured JSON), or `tsv` (tab-separated values). |
 
 > Note: In `tsv` output, the `text` field escapes tabs and line breaks (as `\t` and `\n`). This keeps every result on a single line for line-based parsers. Set `--include-text=false` to omit the `text` field entirely.
+
+### TSV Column Layout
+
+The result-list commands (`search`, `hidden`, `tags`, `boosted`, `backlinks`, `connections`) print this header:
+
+```text
+slug	title	file_path	score	tags	extra	heading_path	text
+```
+
+`get` prints this header:
+
+```text
+note_slug	title	file_path	tags	chunks	text
+```
+
+`stats` prints this header:
+
+```text
+notes	chunks	links
+```
 | `--jsonpath`        | `string`  | _(None)_                          | A JSONPath expression to extract and filter fields from the JSON output (for example, `$.results[0].note_slug`). |
 | `--show-tags`       | `boolean` | `false`                           | Includes tag names (`#Tag/Subtag`) in the search and graph outputs.                                               |
 | `--show-file-path`  | `boolean` | `true`                            | Includes `file_path` in outputs. You can use `--show-file-path=false` to omit it.                                           |
@@ -42,7 +62,7 @@ You can apply these flags to `notebrain` before a subcommand (for example, `note
 
 ### Shared Query Flags
 
-The `search`, `hidden`, and `boosted` commands accept these flags:
+The `search`, `hidden`, `boosted`, and `tags` commands accept these flags:
 
 | Flag               | Type      | Default | Description                                                                 |
 | :----------------- | :-------- | :------ | :-------------------------------------------------------------------------- |
@@ -82,7 +102,7 @@ When you execute NoteBrain queries inside AI agent workflows, automated pipeline
 1. **Clean stdout in machine formats**:
    NoteBrain writes query results to stdout and all diagnostics (progress, warnings) to stderr. When you use a non-interactive machine format (`--format=json`, `tsv`, or `--jsonpath`), stdout is clean and correct for JSON parsers and AI agents.
  2. **Compact JSON envelopes**:
-    By default, the JSON output includes the necessary properties in a clean format. You can use `--show-file-path=false` to remove file paths. This decreases the token consumption for Large Language Models. The similarity scores (`score`) round to 4 decimal places (`0.8520`). The query headers (`query`) do not have terminal decorations.
+     By default, the JSON output includes the necessary properties in a clean format. You can use `--show-file-path=false` to remove file paths. This decreases the token consumption for Large Language Models. In JSON output, the similarity scores (`score`) round to 4 decimal places (`0.8520`). In TSV output, they keep 6 decimal places (`0.852000`). The query headers (`query`) do not have terminal decorations.
     All commands wrap their JSON output in the same envelope: the command name under `command`, the inputs under `query`, and the data under a command-specific key (`results`, `note`, or the count fields). For example, `notebrain get "slug" --format=json` returns `{"command":"get","query":"slug","note":{...}}`. The `--jsonpath` expression still operates on the inner data, so existing paths such as `$.note_slug` and `$.links` keep working.
 3. **Non-redundant context windows (`--context-window N`)**:
    If you pass `--context-window N` (for example, `--context-window 1` or `2`) with `--include-text`, NoteBrain gets ±N adjacent chunks into the `context` array. It does not include the matched chunk (`text`) in the array (`PopulateContext`). This prevents duplicated text across `text` and `context`.
@@ -141,7 +161,7 @@ notebrain ingest [<glob>] [flags]
 | `--chunk-size`      | `integer` | `800`   | The maximum number of runes per chunk for the parser.                                                 |
 | `--chunk-overlap`   | `integer` | `100`   | The number of overlap runes between sub-chunks when the parser splits a section.                               |
 | `--enable-pdf`      | `boolean` | `false` | Enables the extraction of PDF text. This requires `--llm-model`.                      |
-| `--llm-model`       | `string`  | `""`    | The LLM model to parse PDFs (for example, `openrouter/inclusionai/ling-3.0-flash:free`). |
+| `--llm-model`       | `string`  | `""`    | The LLM model to parse PDFs (for example, `openrouter/anthropic/claude-3.5-haiku`). |
 | `--llm-context-window` | `integer` | `128000` | The total context window size of the LLM in tokens.                                         |
 | `--respect-exclude` | `boolean` | `false` | Obeys the Obsidian user filters and attachment exclusions during ingestion. |
 
@@ -436,7 +456,7 @@ notebrain doctor [flags]
 
 ### `init`
 
-This command starts an interactive wizard to create or update your `config.toml` file. It automatically finds your vault path. You can enable or disable PDF support.
+This command starts an interactive wizard to create or update your `config.toml` file. The wizard prefills your existing configuration, if one exists. It asks for the vault path. It can enable or disable PDF support.
 
 #### Usage
 
@@ -474,10 +494,22 @@ This command drops all the NoteBrain collections (`nb_chunks` and `nb_links`) an
 notebrain reset [flags]
 ```
 
+#### Command-Specific Flags
+
+| Flag    | Type      | Default | Description                                                                |
+| :------ | :-------- | :------ | :------------------------------------------------------------------------- |
+| `--yes` | `boolean` | `false` | Skips the confirmation prompt (short form: `-y`). Use it in scripts. |
+
 > Note: For automated scripts, you can pipe `yes` to skip the interactive confirmation prompt:
 
 ```bash
 echo yes | notebrain reset
+```
+
+You can also use the flag:
+
+```bash
+notebrain reset -y
 ```
 
 ---
