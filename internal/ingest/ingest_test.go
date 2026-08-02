@@ -396,7 +396,7 @@ func BenchmarkEstimateTokens(b *testing.B) {
 	text := strings.Repeat("This is a test sentence for token estimation in NoteBrain. ", 50)
 	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = estimateTokens(text)
 	}
 }
@@ -408,7 +408,7 @@ func BenchmarkBuildEmbedText(b *testing.B) {
 	body := strings.Repeat("The ingestion pipeline tokenizes markdown notes and stores them into ChromaDB vectors. ", 10)
 	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = buildEmbedText(title, heading, tags, body, 256)
 	}
 }

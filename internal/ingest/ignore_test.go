@@ -92,7 +92,7 @@ func BenchmarkIsExcluded(b *testing.B) {
 	path := "Projects/2026/drafts/subfolder/deep/idea.md"
 	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = ingest.IsExcluded(path, filters)
 	}
 }

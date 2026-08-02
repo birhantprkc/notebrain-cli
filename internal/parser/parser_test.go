@@ -826,7 +826,7 @@ Final concluding paragraph with some more prose.
 `
 	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = Parse(body, "benchmark-note", 800, 100, false)
 	}
 }
