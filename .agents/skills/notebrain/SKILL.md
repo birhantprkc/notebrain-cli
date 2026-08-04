@@ -83,6 +83,7 @@ Only when the task specifically requires exploring graph topology, backlinks, or
 | User Intent                                            | Command       | Syntax                                                                                 |
 | ------------------------------------------------------ | ------------- | -------------------------------------------------------------------------------------- |
 | "What do my notes say about X?"                        | `search`      | `notebrain search "topic" --context-window 1 --limit 3 --include-text`                 |
+| "Skip specific note from search"                       | `search`      | `notebrain search "topic" --exclude-note "<note slug/Note title>"` |
 | "Find the slug for a note about X" _(discovery step)_  | `search`      | `notebrain search "<query>" --jsonpath="$.results[*].note_slug"`                       |
 | "Read full note Y" _(use sparingly; prefer context)_   | `get`         | `notebrain get "<slug-or-path>"`                                                       |
 | "What links directly to this note?"                    | `backlinks`   | `notebrain backlinks "<slug>" --format json`                                           |
@@ -94,7 +95,7 @@ Only when the task specifically requires exploring graph topology, backlinks, or
 | "Find notes with tag X and its child tags"             | `tags`        | `notebrain tags "#Tag" --children --format json`                                       |
 | "What notes share tags with X?"                        | `tags`        | `notebrain tags "<slug>" --shared --min-shared 1 --format json`                        |
 
-> **Need detailed flag descriptions or output schemas?** Read [references/flags.md](references/flags.md) for full flag tables and [references/schema.md](references/schema.md) for JSON envelope fields and TSV formatting. For result filters (`--section`, `--tag`, `--has-tasks`, `--has-code`, `--min-score`, `--skip-phantom`), see the `search` table in references/flags.md.
+> **Need detailed flag descriptions or output schemas?** Read [references/flags.md](references/flags.md) for full flag tables and [references/schema.md](references/schema.md) for JSON envelope fields and TSV formatting. For result filters (`--section`, `--tag`, `--has-tasks`, `--has-code`, `--exclude-note`, `--min-score`, `--skip-phantom`), see the `search` table in references/flags.md.
 
 ## Response Format
 

@@ -17,8 +17,9 @@ These flags are available only on the commands listed.
 | `--has-tasks`      | Only return chunks containing task lists (checkboxes).                                         | off     |
 | `--has-code`       | Only return chunks containing fenced code blocks.                                              | off     |
 | `--with-pdf`       | Include PDF text extraction results in the search. Defaults to false (Markdown-only).        | `false` |
+| `--exclude-note "SLUG"` | Exclude notes from results. Accepts a note slug, title, or path, resolved automatically; repeat the flag or use comma-separated values. Unknown notes are skipped with a warning. | —       |
 
-> Note: To execute multi-query search with multi-hit boosting, pass multiple positional query arguments: `notebrain search "query1" "query2"`.
+> Note: To execute multi-query search with multi-hit boosting, pass multiple positional query arguments: `notebrain search "query1" "query2"`. When a title contains a literal comma, escape it with a backslash (`\,`) so it is not split into separate exclude values.
 
 ### `hidden`
 

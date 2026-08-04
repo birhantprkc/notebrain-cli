@@ -193,7 +193,7 @@ notebrain ingest "Daily Notes/*.md" --vault-path "/path/to/vault"
 
 ### `search`
 
-This command does a semantic vector search across all the indexed chunks in your vault. You can filter the results by sections, tags, tasks, and code.
+This command does a semantic vector search across all the indexed chunks in your vault. You can filter the results by sections, tags, tasks, and code, and exclude specific notes from the results.
 
 #### Usage
 
@@ -216,6 +216,7 @@ notebrain search [<query>] [flags]
 | `--has-tasks` | `boolean` | `false`  | Shows only the chunks that contain markdown task lists (`- [ ]`).|
 | `--has-code`  | `boolean` | `false`  | Shows only the chunks that contain code blocks.                  |
 | `--with-pdf`  | `boolean` | `false`  | Includes the PDF results in the search (the default is markdown only). |
+| `--exclude-note` | `string` | _(None)_ | Excludes notes from the results. Accepts a note slug, title, or path; repeat the flag or use comma-separated values to exclude multiple notes. |
 
 #### Examples
 
@@ -231,6 +232,13 @@ notebrain search "message brokers" "redis queue"
 
 # Search showing tags in output
 notebrain search "redis streams" --show-tags
+
+# Exclude private and archive notes from results (slug, title, or path)
+notebrain search "reconciliation loop in kubernetes" --exclude-note "private/daily-journal" --exclude-note "archive"
+notebrain search "redis queues" --exclude-note "zeta-note.md,beta.md"
+
+# Text output notes that some notes were excluded
+notebrain search "kubernetes" --exclude-note "archive"
 ```
 
 #### How Multi-Query Matching and Ranking Works

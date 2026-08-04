@@ -36,14 +36,15 @@ import (
 )
 
 type SearchCmd struct {
-	Queries     []string `group:"search" arg:"" optional:"" name:"query" help:"search query (multiple args for multi-hit boosting)"`
-	Limit       int      `group:"search" help:"maximum number of results" default:"10"`
-	TopKPerNote int      `group:"search" name:"top-k" help:"maximum chunks to retain per note (prevents one note dominating)" default:"3"`
-	Section     string   `group:"search" help:"filter results to chunks under this heading path (e.g. 'Architecture > Components')"`
-	Tag         string   `group:"search" help:"filter results to notes with this tag"`
-	HasTasks    bool     `group:"search" help:"only return chunks containing task lists (checkboxes)"`
-	HasCode     bool     `group:"search" help:"only return chunks containing fenced code blocks"`
-	WithPDF     bool     `group:"search" help:"include PDF results in search"`
+	Queries      []string `group:"search" arg:"" optional:"" name:"query" help:"search query (multiple args for multi-hit boosting)"`
+	Limit        int      `group:"search" help:"maximum number of results" default:"10"`
+	TopKPerNote  int      `group:"search" name:"top-k" help:"maximum chunks to retain per note (prevents one note dominating)" default:"3"`
+	Section      string   `group:"search" help:"filter results to chunks under this heading path (e.g. 'Architecture > Components')"`
+	Tag          string   `group:"search" help:"filter results to notes with this tag"`
+	HasTasks     bool     `group:"search" help:"only return chunks containing task lists (checkboxes)"`
+	HasCode      bool     `group:"search" help:"only return chunks containing fenced code blocks"`
+	WithPDF      bool     `group:"search" help:"include PDF results in search"`
+	ExcludeNotes []string `group:"search" name:"exclude-note" help:"exclude notes from results (slug, title, or path; repeatable or comma-separated)" completion-predictor:"note-slug"`
 	ChunkDisplayFlags
 }
 
@@ -109,6 +110,11 @@ func (c *SearchCmd) Run(globals *Globals) error {
 	}
 	defer func() { _ = st.Close() }()
 
+	excluded, err := c.resolveExcludes(ctx, st)
+	if err != nil {
+		return err
+	}
+
 	slog.Debug("initializing embedding model")
 	emb, err := embedder.NewLocalEmbedder()
 	if err != nil {
@@ -116,11 +122,57 @@ func (c *SearchCmd) Run(globals *Globals) error {
 	}
 	defer func() { _ = emb.Close() }()
 
-	return c.runStatic(ctx, globals, st, emb, resolved)
+	return c.runStatic(ctx, globals, st, emb, resolved, excluded)
 }
 
-func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st *store.Store, emb *embedder.LocalEmbedder, resolved []string) error {
-	whereFilter := c.buildWhereFilter(len(resolved) > 0)
+// resolveExcludes normalizes, resolves, and validates --exclude-note values.
+// Each value may be a slug, title, filename, or partial path (the same
+// resolution `get` and `hidden` use). Values that resolve to nothing are
+// reported as a warning so typos do not silently no-op. Returns the resolved
+// slugs, deduplicated. An ambiguous value (matching multiple notes) is a
+// usage error and aborts the command.
+func (c *SearchCmd) resolveExcludes(ctx context.Context, st *store.Store) ([]string, error) {
+	if len(c.ExcludeNotes) == 0 {
+		return nil, nil
+	}
+	// One metadata scan serves as the existence check for every exclusion.
+	indexed, err := st.GetNoteMetadata(ctx)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{}, len(c.ExcludeNotes))
+	resolved := make([]string, 0, len(c.ExcludeNotes))
+	for _, raw := range c.ExcludeNotes {
+		value := strings.TrimSpace(raw)
+		if value == "" {
+			continue
+		}
+		slug, err := st.ResolveNoteSlug(ctx, value)
+		if err != nil {
+			return nil, &UsageError{Err: fmt.Errorf("exclude note %q: %w", value, err)}
+		}
+		if slug == "" {
+			continue
+		}
+		if _, ok := indexed[slug]; !ok {
+			fmt.Fprintf(os.Stderr, "warning: note %q not found; nothing excluded\n", value)
+			continue
+		}
+		if _, ok := seen[slug]; !ok {
+			seen[slug] = struct{}{}
+			resolved = append(resolved, slug)
+		}
+	}
+	return resolved, nil
+}
+
+func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st *store.Store, emb *embedder.LocalEmbedder, resolved, excluded []string) error {
+	whereFilter := c.buildWhereFilter(len(resolved) > 0, excluded)
+
+	excludeSuffix := ""
+	if len(excluded) > 0 {
+		excludeSuffix = fmt.Sprintf(" (excluding: %s)", strings.Join(excluded, ", "))
+	}
 
 	if len(resolved) == 0 {
 		results, err := st.TagSearch(ctx, c.Tag, c.Limit, false, whereFilter, c.IncludeText)
@@ -130,7 +182,7 @@ func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st *store.S
 		if err := st.PopulateContext(ctx, results, c.ContextWindow); err != nil {
 			return fmt.Errorf("populate context: %w", err)
 		}
-		return printResultsFormatted("search", fmt.Sprintf("Tag Search: %q", c.Tag), c.Tag, results, globals, &c.ChunkDisplayFlags)
+		return printResultsFormatted("search", fmt.Sprintf("Tag Search: %q%s", c.Tag, excludeSuffix), c.Tag, results, globals, &c.ChunkDisplayFlags)
 	}
 
 	if len(resolved) > 1 {
@@ -150,6 +202,7 @@ func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st *store.S
 		if c.Tag != "" {
 			header += fmt.Sprintf(" (Tag: %s)", c.Tag)
 		}
+		header += excludeSuffix
 		return printResultsFormatted("search", header, strings.Join(resolved, " | "), results, globals, &c.ChunkDisplayFlags)
 	}
 
@@ -165,11 +218,11 @@ func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st *store.S
 		return fmt.Errorf("populate context: %w", err)
 	}
 
-	return printResultsFormatted("search", fmt.Sprintf("Semantic Search: %q", resolved[0]), resolved[0], results, globals, &c.ChunkDisplayFlags)
+	return printResultsFormatted("search", fmt.Sprintf("Semantic Search: %q%s", resolved[0], excludeSuffix), resolved[0], results, globals, &c.ChunkDisplayFlags)
 }
 
-func (c *SearchCmd) buildWhereFilter(resolveTags bool) chroma.WhereFilter {
-	filters := make([]chroma.WhereClause, 0, 4)
+func (c *SearchCmd) buildWhereFilter(resolveTags bool, excluded []string) chroma.WhereFilter {
+	filters := make([]chroma.WhereClause, 0, 5)
 	if c.Section != "" {
 		filters = append(filters, chroma.EqString("heading_path", c.Section))
 	}
@@ -184,6 +237,9 @@ func (c *SearchCmd) buildWhereFilter(resolveTags bool) chroma.WhereFilter {
 	}
 	if c.Tag != "" && resolveTags {
 		filters = append(filters, store.TagWhereClause(c.Tag))
+	}
+	if len(excluded) > 0 {
+		filters = append(filters, chroma.NinString("note_slug", excluded...))
 	}
 	if len(filters) == 1 {
 		return filters[0]

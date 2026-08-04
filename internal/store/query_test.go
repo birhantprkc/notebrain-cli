@@ -79,6 +79,50 @@ func TestSemanticSearch(t *testing.T) {
 	}
 }
 
+// TestSemanticSearch_ExcludedNote verifies the embedded engine honors a
+// $nin where filter on note_slug (the mechanism behind --exclude-note).
+func TestSemanticSearch_ExcludedNote(t *testing.T) {
+	ctx, st, qVec := setupStoreTest(t)
+	excluded := chroma.NinString("note_slug", "note-b")
+	res, err := st.SemanticSearch(ctx, qVec, 10, 1, excluded, false)
+	if err != nil {
+		t.Fatalf("SemanticSearch failed: %v", err)
+	}
+	if len(res) == 0 {
+		t.Fatal("expected results after excluding one note")
+	}
+	for _, r := range res {
+		if r.NoteSlug == "note-b" {
+			t.Errorf("excluded note-b leaked into results: %v", res)
+		}
+	}
+	if res[0].NoteSlug != "note-a" {
+		t.Errorf("expected note-a as best match, got %v", res)
+	}
+}
+
+// TestTagSearch_ExcludedNote covers the Get-based where path (TagSearch),
+// which is distinct from the Query-based path used by semantic search.
+func TestTagSearch_ExcludedNote(t *testing.T) {
+	ctx, st, _ := setupStoreTest(t)
+	excluded := chroma.NinString("note_slug", "note-b")
+	res, err := st.TagSearch(ctx, "go", 10, false, excluded, false)
+	if err != nil {
+		t.Fatalf("TagSearch failed: %v", err)
+	}
+	if len(res) == 0 {
+		t.Fatal("expected results after excluding one note")
+	}
+	for _, r := range res {
+		if r.NoteSlug == "note-b" {
+			t.Errorf("excluded note-b leaked into tag results: %v", res)
+		}
+		if r.NoteSlug != "note-a" {
+			t.Errorf("unexpected note %q in results: %v", r.NoteSlug, res)
+		}
+	}
+}
+
 func TestBacklinks(t *testing.T) {
 	ctx, st, _ := setupStoreTest(t)
 	res, err := st.Backlinks(ctx, "note-b")
