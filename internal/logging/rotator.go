@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // Default rotation limits, applied when a zero or negative value is given.
@@ -18,7 +19,11 @@ const (
 // reaches maxSize bytes. Rotated files are kept as numbered backups
 // (path.1, path.2, ...); backups beyond maxBackups are pruned. Backups are
 // counted on open, so limits stay bounded across restarts.
+//
+// RotatingWriter is safe for concurrent use; it is installed as a slog sink
+// and slog handlers may be invoked from multiple goroutines at once.
 type RotatingWriter struct {
+	mu         sync.Mutex
 	path       string
 	maxSize    int64
 	maxBackups int
@@ -63,14 +68,23 @@ func NewRotatingWriter(path string, maxSize int64, maxBackups int) (*RotatingWri
 
 // Write appends p to the log file, rotating first when the size limit would
 // be crossed. Errors are recorded and returned; callers that ignore them can
-// inspect Err later.
+// inspect Err later. When a previous rotation left the writer closed, Write
+// attempts one reopen of the original path before giving up.
 func (w *RotatingWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	if w.f == nil {
-		return 0, os.ErrClosed
+		if err := w.reopen(); err != nil {
+			w.recordErr(err)
+			return 0, err
+		}
 	}
 	if w.size+int64(len(p)) > w.maxSize {
 		if err := w.rotate(); err != nil {
 			w.recordErr(err)
+			// Keep the sink alive: reopen whatever exists at path so later
+			// writes succeed, even though this one is lost.
+			_ = w.reopen()
 			return 0, err
 		}
 	}
@@ -84,6 +98,8 @@ func (w *RotatingWriter) Write(p []byte) (int, error) {
 
 // Close closes the current log file. Close on a closed writer is a no-op.
 func (w *RotatingWriter) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	if w.f == nil {
 		return nil
 	}
@@ -94,6 +110,8 @@ func (w *RotatingWriter) Close() error {
 
 // Err returns the first write or rotation error encountered, if any.
 func (w *RotatingWriter) Err() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	return w.err
 }
 
@@ -103,8 +121,24 @@ func (w *RotatingWriter) recordErr(err error) {
 	}
 }
 
+// reopen reopens the log file in append mode. Callers must hold w.mu.
+func (w *RotatingWriter) reopen() error {
+	f, err := os.OpenFile(w.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return fmt.Errorf("reopen log file: %w", err)
+	}
+	info, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return fmt.Errorf("stat reopened log file: %w", err)
+	}
+	w.f = f
+	w.size = info.Size()
+	return nil
+}
+
 // rotate closes the current file, shifts backups up by one (pruning beyond
-// maxBackups), and reopens a fresh file at path.
+// maxBackups), and reopens a fresh file at path. Callers must hold w.mu.
 func (w *RotatingWriter) rotate() error {
 	if err := w.f.Close(); err != nil {
 		return err
@@ -127,13 +161,7 @@ func (w *RotatingWriter) rotate() error {
 		w.backups++
 	}
 
-	f, err := os.OpenFile(w.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return fmt.Errorf("reopen log file: %w", err)
-	}
-	w.f = f
-	w.size = 0
-	return nil
+	return w.reopen()
 }
 
 func (w *RotatingWriter) backupPath(n int) string {
