@@ -143,69 +143,25 @@ func (s *Store) Stats(ctx context.Context) (map[string]int64, error) {
 	var distinctNotes int64
 	if nc > 0 {
 		seen := make(map[string]struct{})
-		offset := 0
-		batchSize := ffiSafePageSize
-		for {
-			res, err := s.chunks.Get(ctx,
-				chroma.WithWhere(chroma.EqInt("chunk_index", 0)),
-				chroma.WithLimit(batchSize),
-				chroma.WithOffset(offset),
-				chroma.WithInclude(chroma.IncludeMetadatas),
-			)
-			if err != nil {
-				return nil, fmt.Errorf("stats distinct notes: %w", err)
+		metas, err := s.paginatedZeroIndexMetadatas(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("stats distinct notes: %w", wrapChromaErr(err))
+		}
+		for _, m := range metas {
+			if slug, ok := m.GetString("note_slug"); ok && slug != "" {
+				seen[slug] = struct{}{}
 			}
-			if res == nil {
-				break
-			}
-			metas := res.GetMetadatas()
-			if len(metas) == 0 {
-				break
-			}
-			for _, m := range metas {
-				if m == nil {
-					continue
-				}
-				if slug, ok := m.GetString("note_slug"); ok && slug != "" {
-					seen[slug] = struct{}{}
-				}
-			}
-			if len(metas) < batchSize {
-				break
-			}
-			offset += batchSize
 		}
 		// Fallback in case chunk_index=0 filter didn't match anything (e.g. older index format)
 		if len(seen) == 0 {
-			offset = 0
-			for {
-				res, err := s.chunks.Get(ctx,
-					chroma.WithLimit(batchSize),
-					chroma.WithOffset(offset),
-					chroma.WithInclude(chroma.IncludeMetadatas),
-				)
-				if err != nil {
-					return nil, fmt.Errorf("stats distinct notes (fallback): %w", err)
+			metas, err = paginatedGetMetadatas(ctx, s.chunks, nil)
+			if err != nil {
+				return nil, fmt.Errorf("stats distinct notes (fallback): %w", wrapChromaErr(err))
+			}
+			for _, m := range metas {
+				if slug, ok := m.GetString("note_slug"); ok && slug != "" {
+					seen[slug] = struct{}{}
 				}
-				if res == nil {
-					break
-				}
-				metas := res.GetMetadatas()
-				if len(metas) == 0 {
-					break
-				}
-				for _, m := range metas {
-					if m == nil {
-						continue
-					}
-					if slug, ok := m.GetString("note_slug"); ok && slug != "" {
-						seen[slug] = struct{}{}
-					}
-				}
-				if len(metas) < batchSize {
-					break
-				}
-				offset += batchSize
 			}
 		}
 		distinctNotes = int64(len(seen))

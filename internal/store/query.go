@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
@@ -152,19 +153,27 @@ func (s *Store) MultiSemanticSearch(ctx context.Context, queryVecs [][]float32, 
 		}
 	}
 
-	merged := make([]Result, 0, len(chunkMap))
-	for _, mc := range chunkMap {
-		merged = append(merged, mc.res)
+	// Hoist the per-note query counts out of the comparator so sorting is
+	// not doing a map lookup per comparison.
+	type mergedEntry struct {
+		noteQueryCount int
+		res            Result
 	}
-
-	sort.Slice(merged, func(i, j int) bool {
-		qi := len(noteQueryScores[merged[i].NoteSlug])
-		qj := len(noteQueryScores[merged[j].NoteSlug])
-		if qi != qj {
-			return qi > qj
+	entries := make([]mergedEntry, 0, len(chunkMap))
+	for _, mc := range chunkMap {
+		entries = append(entries, mergedEntry{noteQueryCount: len(noteQueryScores[mc.res.NoteSlug]), res: mc.res})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].noteQueryCount != entries[j].noteQueryCount {
+			return entries[i].noteQueryCount > entries[j].noteQueryCount
 		}
-		return merged[i].Score > merged[j].Score
+		return entries[i].res.Score > entries[j].res.Score
 	})
+
+	merged := make([]Result, len(entries))
+	for i, e := range entries {
+		merged[i] = e.res
+	}
 
 	out := deduplicateResultsByNote(merged, limit, topKPerNote)
 
@@ -190,26 +199,20 @@ func (s *Store) populateTextLocked(ctx context.Context, results []Result) error 
 	}
 	var resIDs []chroma.DocumentID
 	var resDocs chroma.Documents
-	offset := 0
-	for {
-		res, err := s.chunks.Get(ctx,
+	err := getPages(ctx, s.chunks, func(offset int) []chroma.GetOption {
+		return []chroma.GetOption{
 			chroma.WithIDs(ids...),
 			chroma.WithInclude(chroma.IncludeDocuments),
 			chroma.WithLimit(ffiSafePageSize),
 			chroma.WithOffset(offset),
-		)
-		if err != nil {
-			return fmt.Errorf("populate chunk text: %w", wrapChromaErr(err))
 		}
-		if res.Count() == 0 {
-			break
-		}
+	}, func(res chroma.GetResult) bool {
 		resIDs = append(resIDs, res.GetIDs()...)
 		resDocs = append(resDocs, res.GetDocuments()...)
-		if res.Count() < ffiSafePageSize {
-			break
-		}
-		offset += ffiSafePageSize
+		return true
+	})
+	if err != nil {
+		return fmt.Errorf("populate chunk text: %w", wrapChromaErr(err))
 	}
 	if len(resDocs) == 0 {
 		return nil
@@ -367,64 +370,102 @@ func (s *Store) GetNoteMetadata(ctx context.Context) (map[string]NoteMeta, error
 	return hashes, nil
 }
 
-// paginatedGetMetadatas is a helper to fetch metadata from any collection safely across FFI limits.
-func paginatedGetMetadatas(ctx context.Context, col chroma.Collection, where chroma.WhereFilter) ([]chroma.DocumentMetadata, error) {
-	var all []chroma.DocumentMetadata
+// getPages iterates a paginated Get over col in ffiSafePageSize pages.
+// buildOpts receives the page offset and must return the Get options for
+// that page. collect is called for each non-empty page; returning false
+// stops iteration. The loop stops on an empty or short page so no single
+// response exceeds the embedded FFI 1 MiB ceiling.
+func getPages(ctx context.Context, col chroma.Collection, buildOpts func(offset int) []chroma.GetOption, collect func(res chroma.GetResult) bool) error {
 	offset := 0
 	for {
-		res, err := col.Get(ctx,
-			chroma.WithWhere(where),
-			chroma.WithInclude(chroma.IncludeMetadatas),
-			chroma.WithLimit(ffiSafePageSize),
-			chroma.WithOffset(offset),
-		)
+		res, err := col.Get(ctx, buildOpts(offset)...)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if res == nil {
-			return nil, nil
+		if res == nil || res.Count() == 0 {
+			return nil
 		}
-		metas := res.GetMetadatas()
-		if len(metas) == 0 {
-			break
+		if !collect(res) {
+			return nil
 		}
-		all = append(all, metas...)
-		if len(metas) < ffiSafePageSize {
-			break
+		if res.Count() < ffiSafePageSize {
+			return nil
 		}
 		offset += ffiSafePageSize
 	}
-	return all, nil
+}
+
+// paginatedGetMetadatas is a helper to fetch metadata from any collection safely across FFI limits.
+func paginatedGetMetadatas(ctx context.Context, col chroma.Collection, where chroma.WhereFilter) ([]chroma.DocumentMetadata, error) {
+	var all []chroma.DocumentMetadata
+	err := getPages(ctx, col, func(offset int) []chroma.GetOption {
+		opts := []chroma.GetOption{chroma.WithInclude(chroma.IncludeMetadatas), chroma.WithLimit(ffiSafePageSize), chroma.WithOffset(offset)}
+		if where != nil {
+			opts = append(opts, chroma.WithWhere(where))
+		}
+		return opts
+	}, func(res chroma.GetResult) bool {
+		all = append(all, res.GetMetadatas()...)
+		return true
+	})
+	return all, err
 }
 
 // paginatedGetIDs fetches document IDs matching the where filter across pages
 // so no single Get response exceeds the embedded FFI 1 MiB ceiling.
 func paginatedGetIDs(ctx context.Context, col chroma.Collection, where chroma.WhereFilter) ([]chroma.DocumentID, error) {
 	var all []chroma.DocumentID
-	offset := 0
-	for {
-		res, err := col.Get(ctx,
+	err := getPages(ctx, col, func(offset int) []chroma.GetOption {
+		return []chroma.GetOption{
 			chroma.WithWhere(where),
 			chroma.WithLimit(ffiSafePageSize),
 			chroma.WithOffset(offset),
-		)
-		if err != nil {
-			return nil, err
 		}
-		if res == nil {
-			return nil, nil
+	}, func(res chroma.GetResult) bool {
+		all = append(all, res.GetIDs()...)
+		return true
+	})
+	return all, err
+}
+
+// paginatedGetMetadatasWithDocs fetches chunk metadata plus stored text
+// (documents) across pages.
+func paginatedGetMetadatasWithDocs(ctx context.Context, col chroma.Collection, where chroma.WhereFilter) ([]chroma.DocumentMetadata, chroma.Documents, error) {
+	var metas []chroma.DocumentMetadata
+	var texts chroma.Documents
+	err := getPages(ctx, col, func(offset int) []chroma.GetOption {
+		return []chroma.GetOption{
+			chroma.WithWhere(where),
+			chroma.WithInclude(chroma.IncludeMetadatas, chroma.IncludeDocuments),
+			chroma.WithLimit(ffiSafePageSize),
+			chroma.WithOffset(offset),
 		}
-		ids := res.GetIDs()
-		if len(ids) == 0 {
-			break
+	}, func(res chroma.GetResult) bool {
+		metas = append(metas, res.GetMetadatas()...)
+		texts = append(texts, res.GetDocuments()...)
+		return true
+	})
+	return metas, texts, err
+}
+
+// paginatedGetMetadatasWithEmbeddings fetches chunk metadata plus stored
+// vectors across pages.
+func paginatedGetMetadatasWithEmbeddings(ctx context.Context, col chroma.Collection, where chroma.WhereFilter) ([]chroma.DocumentMetadata, embeddings.Embeddings, error) {
+	var metas []chroma.DocumentMetadata
+	var embs embeddings.Embeddings
+	err := getPages(ctx, col, func(offset int) []chroma.GetOption {
+		return []chroma.GetOption{
+			chroma.WithWhere(where),
+			chroma.WithInclude(chroma.IncludeMetadatas, chroma.IncludeEmbeddings),
+			chroma.WithLimit(ffiSafePageSize),
+			chroma.WithOffset(offset),
 		}
-		all = append(all, ids...)
-		if len(ids) < ffiSafePageSize {
-			break
-		}
-		offset += ffiSafePageSize
-	}
-	return all, nil
+	}, func(res chroma.GetResult) bool {
+		metas = append(metas, res.GetMetadatas()...)
+		embs = append(embs, res.GetEmbeddings()...)
+		return true
+	})
+	return metas, embs, err
 }
 
 func (s *Store) paginatedZeroIndexMetadatas(ctx context.Context) ([]chroma.DocumentMetadata, error) {
@@ -765,29 +806,10 @@ func (s *Store) HiddenConnectionsDeep(ctx context.Context, seedSlug string, limi
 	linked[seedSlug] = true
 
 	// 2. Fetch all stored chunks and embeddings for the seed note
-	var embs embeddings.Embeddings
-	var metas []chroma.DocumentMetadata
-	offset := 0
-	for {
-		res, gerr := s.chunks.Get(ctx,
-			chroma.WithWhere(chroma.EqString("note_slug", seedSlug)),
-			chroma.WithInclude(chroma.IncludeMetadatas, chroma.IncludeEmbeddings),
-			chroma.WithLimit(ffiSafePageSize),
-			chroma.WithOffset(offset),
-		)
-		if gerr != nil {
-			s.mu.RUnlock()
-			return nil, nil, fmt.Errorf("hidden connections deep: get seed chunks: %w", wrapChromaErr(gerr))
-		}
-		if res.Count() == 0 {
-			break
-		}
-		embs = append(embs, res.GetEmbeddings()...)
-		metas = append(metas, res.GetMetadatas()...)
-		if res.Count() < ffiSafePageSize {
-			break
-		}
-		offset += ffiSafePageSize
+	metas, embs, err := paginatedGetMetadatasWithEmbeddings(ctx, s.chunks, chroma.EqString("note_slug", seedSlug))
+	if err != nil {
+		s.mu.RUnlock()
+		return nil, nil, fmt.Errorf("hidden connections deep: get seed chunks: %w", wrapChromaErr(err))
 	}
 	s.mu.RUnlock()
 
@@ -982,26 +1004,17 @@ func (s *Store) TagSearch(ctx context.Context, tag string, limit int, hierarchic
 
 		qLower := strings.ToLower(tag)
 		var filtered []Result
-		const pageSize = 200
-		offset := 0
-
-		for {
-			var opts []chroma.GetOption
+		err := getPages(ctx, s.chunks, func(offset int) []chroma.GetOption {
+			opts := []chroma.GetOption{
+				chroma.WithInclude(includes...),
+				chroma.WithLimit(ffiSafePageSize),
+				chroma.WithOffset(offset),
+			}
 			if whereFilter != nil {
 				opts = append(opts, chroma.WithWhere(whereFilter))
 			}
-			opts = append(opts, chroma.WithInclude(includes...))
-			opts = append(opts, chroma.WithLimit(pageSize), chroma.WithOffset(offset))
-
-			res, err := s.chunks.Get(ctx, opts...)
-			if err != nil {
-				return nil, fmt.Errorf("tag search: %w", wrapChromaErr(err))
-			}
-
-			if res.Count() == 0 {
-				break
-			}
-
+			return opts
+		}, func(res chroma.GetResult) bool {
 			results := getResultToResults(res, 999999, includeText)
 			var pageMatches []Result
 			for _, r := range results {
@@ -1021,13 +1034,12 @@ func (s *Store) TagSearch(ctx context.Context, tag string, limit int, hierarchic
 
 			if len(filtered) >= limit {
 				filtered = filtered[:limit]
-				break
+				return false
 			}
-
-			if res.Count() < pageSize {
-				break
-			}
-			offset += pageSize
+			return true
+		})
+		if err != nil {
+			return nil, fmt.Errorf("tag search: %w", wrapChromaErr(err))
 		}
 		return filtered, nil
 	}
@@ -1040,26 +1052,20 @@ func (s *Store) TagSearch(ctx context.Context, tag string, limit int, hierarchic
 	}
 
 	var allMerged []Result
-	offset := 0
-	for {
-		res, err := s.chunks.Get(ctx,
+	err := getPages(ctx, s.chunks, func(offset int) []chroma.GetOption {
+		return []chroma.GetOption{
 			chroma.WithWhere(filter),
 			chroma.WithInclude(includes...),
 			chroma.WithLimit(ffiSafePageSize),
 			chroma.WithOffset(offset),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("tag search: %w", wrapChromaErr(err))
 		}
-		if res.Count() == 0 {
-			break
-		}
+	}, func(res chroma.GetResult) bool {
 		page := getResultToResults(res, 999999, includeText)
 		allMerged = mergeDeduplicatedResults(allMerged, page)
-		if res.Count() < ffiSafePageSize {
-			break
-		}
-		offset += ffiSafePageSize
+		return true
+	})
+	if err != nil {
+		return nil, fmt.Errorf("tag search: %w", wrapChromaErr(err))
 	}
 	sort.Slice(allMerged, func(i, j int) bool { return allMerged[i].Title < allMerged[j].Title })
 	if len(allMerged) > limit {
@@ -1436,32 +1442,13 @@ func (s *Store) GetNote(ctx context.Context, slugOrPath string) (*NoteContent, e
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	var metas []chroma.DocumentMetadata
-	var texts chroma.Documents
-	offset := 0
 	whereFilter := chroma.Or(
 		chroma.EqString("note_slug", resolved),
 		chroma.EqString("file_path", slugOrPath),
 	)
-	for {
-		res, err := s.chunks.Get(ctx,
-			chroma.WithWhere(whereFilter),
-			chroma.WithInclude(chroma.IncludeMetadatas, chroma.IncludeDocuments),
-			chroma.WithLimit(ffiSafePageSize),
-			chroma.WithOffset(offset),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("get note: %w", wrapChromaErr(err))
-		}
-		if res.Count() == 0 {
-			break
-		}
-		metas = append(metas, res.GetMetadatas()...)
-		texts = append(texts, res.GetDocuments()...)
-		if res.Count() < ffiSafePageSize {
-			break
-		}
-		offset += ffiSafePageSize
+	metas, texts, err := paginatedGetMetadatasWithDocs(ctx, s.chunks, whereFilter)
+	if err != nil {
+		return nil, fmt.Errorf("get note: %w", wrapChromaErr(err))
 	}
 
 	if len(metas) == 0 {
@@ -1581,28 +1568,9 @@ func (s *Store) PopulateContext(ctx context.Context, results []Result, windowSiz
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	var metas []chroma.DocumentMetadata
-	var texts chroma.Documents
-	offset := 0
-	for {
-		res, err := s.chunks.Get(ctx,
-			chroma.WithWhere(whereFilter),
-			chroma.WithInclude(chroma.IncludeMetadatas, chroma.IncludeDocuments),
-			chroma.WithLimit(ffiSafePageSize),
-			chroma.WithOffset(offset),
-		)
-		if err != nil {
-			return fmt.Errorf("populate context: %w", wrapChromaErr(err))
-		}
-		if res.Count() == 0 {
-			break
-		}
-		metas = append(metas, res.GetMetadatas()...)
-		texts = append(texts, res.GetDocuments()...)
-		if res.Count() < ffiSafePageSize {
-			break
-		}
-		offset += ffiSafePageSize
+	metas, texts, err := paginatedGetMetadatasWithDocs(ctx, s.chunks, whereFilter)
+	if err != nil {
+		return fmt.Errorf("populate context: %w", wrapChromaErr(err))
 	}
 
 	if len(metas) == 0 {
@@ -1624,12 +1592,13 @@ func (s *Store) PopulateContext(ctx context.Context, results []Result, windowSiz
 		}
 		fetched = append(fetched, chunkInfo{slug: slug, index: idx, text: txt})
 	}
-	sort.Slice(fetched, func(i, j int) bool {
-		if fetched[i].slug != fetched[j].slug {
-			return fetched[i].slug < fetched[j].slug
-		}
-		return fetched[i].index < fetched[j].index
-	})
+
+	// Index fetched chunks by (slug, index) once so per-result windowing is
+	// O(windowSize) instead of O(total fetched).
+	bySlugIndex := make(map[string]chunkInfo, len(fetched))
+	for _, fc := range fetched {
+		bySlugIndex[fc.slug+":"+strconv.Itoa(fc.index)] = fc
+	}
 
 	for i := range results {
 		slug := results[i].NoteSlug
@@ -1637,8 +1606,11 @@ func (s *Store) PopulateContext(ctx context.Context, results []Result, windowSiz
 		minI := cIdx - windowSize
 		maxI := cIdx + windowSize
 		var ctxTexts []string
-		for _, fc := range fetched {
-			if fc.slug == slug && fc.index >= minI && fc.index <= maxI && fc.index != cIdx {
+		for idx := minI; idx <= maxI; idx++ {
+			if idx == cIdx {
+				continue
+			}
+			if fc, ok := bySlugIndex[slug+":"+strconv.Itoa(idx)]; ok {
 				ctxTexts = append(ctxTexts, fc.text)
 			}
 		}
