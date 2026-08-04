@@ -393,87 +393,17 @@ func (p *Pipeline) processFile(ctx context.Context, vaultPath string, filePath s
 		title = ft
 	}
 
-	if len(astRes.Chunks) == 0 {
-		astRes.Chunks = []parser.Chunk{{NoteSlug: slug, Index: 0, Text: " "}}
+	records, err := p.buildChunkRecords(ctx, &astRes, slug, title, relPath, hash, fileTypeMD)
+	if err != nil {
+		return nil, err
 	}
-
-	// Filter chunks: discard those below the minimum word threshold.
-	// For code-only chunks (where Text is only placeholders), check word count
-	// against RichText so code notes are preserved.
-	validChunks := make([]parser.Chunk, 0, len(astRes.Chunks))
-	for _, c := range astRes.Chunks {
-		storedText := c.RichText
-		if storedText == "" {
-			storedText = c.Text
-		}
-		if len(strings.Fields(storedText)) < p.MinChunkWords {
-			continue
-		}
-		// If c.RichText is empty and c.Text is just code placeholders with no prose, skip.
-		if c.RichText == "" && isCodeOnlyChunk(c.Text) {
-			continue
-		}
-		validChunks = append(validChunks, c)
-	}
-
-	// If every chunk was filtered out, skip the note entirely. Replacing it
-	// with an empty batch would delete its previously indexed chunks, and
-	// since the content hash is unchanged the deletion would be permanent
-	// (later ingests would skip the file as unmodified).
-	if len(validChunks) == 0 {
+	if len(records) == 0 {
 		return nil, nil
-	}
-
-	chunkRecords := make([]store.ChunkRecord, len(validChunks))
-	for i, c := range validChunks {
-		// Preamble fix: the top-of-note section before the first heading has no
-		// HeadingPath. Use the note title so preamble chunks are semantically grounded.
-		headingPath := c.HeadingPath
-		if headingPath == "" {
-			headingPath = title
-		}
-
-		// Embed from the overlap-full variant so chunk-boundary context
-		// survives embedding; store the overlap-free display text.
-		embedContent := c.EmbedText
-		if isCodeOnlyChunk(c.EmbedText) && c.RichText != "" {
-			embedContent = c.RichText
-		}
-
-		storedText := c.RichText
-		if storedText == "" {
-			storedText = c.Text
-		}
-
-		// Contextual augmentation: prepend title + heading path + tags before
-		// embedding. The storedText is stored in ChromaDB for display/retrieval.
-		embedText := buildEmbedText(title, headingPath, astRes.Tags, embedContent, p.MaxEmbedTokens)
-		emb, err := p.embedder.Embed(ctx, embedText)
-		if err != nil {
-			return nil, err
-		}
-
-		chunkRecords[i] = store.ChunkRecord{
-			ID:           fmt.Sprintf("%s:%d", slug, i),
-			NoteSlug:     slug,
-			Title:        title,
-			FilePath:     relPath,
-			ChunkIndex:   i,
-			Text:         storedText,
-			Tags:         astRes.Tags,
-			HeadingPath:  c.HeadingPath,
-			HeadingLevel: c.Level,
-			HasTask:      c.HasTask,
-			HasCode:      c.HasCode,
-			FileType:     fileTypeMD,
-			ContentHash:  hash,
-			Embedding:    emb,
-		}
 	}
 
 	return &store.BatchIngestData{
 		NoteSlug:     slug,
-		ChunkRecords: chunkRecords,
+		ChunkRecords: records,
 		Links:        astRes.Links,
 	}, nil
 }
@@ -595,11 +525,35 @@ func (p *Pipeline) processPdfFile(ctx context.Context, vaultPath string, filePat
 	astRes := parser.Parse(markdown, slug, p.ChunkSize, p.ChunkOverlap, p.SkipAttachments)
 
 	// Empty LLM output is usually a transient conversion failure. Preserve the
-	// previously indexed PDF instead of deleting it from the index.
-	if len(astRes.Chunks) == 0 {
+	// previously indexed PDF instead of deleting it from the index; an empty
+	// batch would remove its chunks permanently (see buildChunkRecords).
+	records, err := p.buildChunkRecords(ctx, &astRes, slug, title, relPath, hash, fileTypePDF)
+	if err != nil {
+		return nil, err
+	}
+	if len(records) == 0 {
 		return nil, nil
 	}
 
+	return &store.BatchIngestData{
+		NoteSlug:     slug,
+		ChunkRecords: records,
+		Links:        astRes.Links,
+	}, nil
+}
+
+// buildChunkRecords filters parsed chunks below the minimum word threshold,
+// embeds the survivors, and assembles store records tagged with fileType.
+//
+// When nothing survives (note had no chunks, or every chunk was filtered),
+// it returns an empty slice: the caller must skip the note entirely, since
+// replacing it with an empty batch would delete its previously indexed
+// chunks, and because the content hash is unchanged that deletion would be
+// permanent (later ingests would skip the file as unmodified).
+func (p *Pipeline) buildChunkRecords(ctx context.Context, astRes *parser.Result, slug, title, relPath, hash, fileType string) ([]store.ChunkRecord, error) {
+	// Filter chunks: discard those below the minimum word threshold.
+	// For code-only chunks (where Text is only placeholders), check word count
+	// against RichText so code notes are preserved.
 	validChunks := make([]parser.Chunk, 0, len(astRes.Chunks))
 	for _, c := range astRes.Chunks {
 		storedText := c.RichText
@@ -609,25 +563,24 @@ func (p *Pipeline) processPdfFile(ctx context.Context, vaultPath string, filePat
 		if len(strings.Fields(storedText)) < p.MinChunkWords {
 			continue
 		}
+		// If c.RichText is empty and c.Text is just code placeholders with no prose, skip.
 		if c.RichText == "" && isCodeOnlyChunk(c.Text) {
 			continue
 		}
 		validChunks = append(validChunks, c)
 	}
 
-	// Same preservation rule as markdown notes: an empty batch would delete
-	// the PDF's previously indexed chunks with no way to restore them.
-	if len(validChunks) == 0 {
-		return nil, nil
-	}
-
 	chunkRecords := make([]store.ChunkRecord, len(validChunks))
 	for i, c := range validChunks {
+		// Preamble fix: the top-of-note section before the first heading has no
+		// HeadingPath. Use the note title so preamble chunks are semantically grounded.
 		headingPath := c.HeadingPath
 		if headingPath == "" {
 			headingPath = title
 		}
 
+		// Embed from the overlap-full variant so chunk-boundary context
+		// survives embedding; store the overlap-free display text.
 		embedContent := c.EmbedText
 		if isCodeOnlyChunk(c.EmbedText) && c.RichText != "" {
 			embedContent = c.RichText
@@ -638,6 +591,8 @@ func (p *Pipeline) processPdfFile(ctx context.Context, vaultPath string, filePat
 			storedText = c.Text
 		}
 
+		// Contextual augmentation: prepend title + heading path + tags before
+		// embedding. The storedText is stored in ChromaDB for display/retrieval.
 		embedText := buildEmbedText(title, headingPath, astRes.Tags, embedContent, p.MaxEmbedTokens)
 		emb, err := p.embedder.Embed(ctx, embedText)
 		if err != nil {
@@ -656,15 +611,11 @@ func (p *Pipeline) processPdfFile(ctx context.Context, vaultPath string, filePat
 			HeadingLevel: c.Level,
 			HasTask:      c.HasTask,
 			HasCode:      c.HasCode,
-			FileType:     fileTypePDF,
+			FileType:     fileType,
 			ContentHash:  hash,
 			Embedding:    emb,
 		}
 	}
 
-	return &store.BatchIngestData{
-		NoteSlug:     slug,
-		ChunkRecords: chunkRecords,
-		Links:        astRes.Links,
-	}, nil
+	return chunkRecords, nil
 }
