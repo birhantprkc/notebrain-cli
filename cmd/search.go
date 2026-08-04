@@ -135,22 +135,21 @@ func (c *SearchCmd) resolveExcludes(ctx context.Context, st *store.Store) ([]str
 	if len(c.ExcludeNotes) == 0 {
 		return nil, nil
 	}
-	// One metadata scan serves as the existence check for every exclusion.
-	indexed, err := st.GetNoteMetadata(ctx)
+	// A single metadata scan serves both resolution and the existence
+	// check for every exclusion, so the cost does not grow with the
+	// number of excluded notes.
+	resolved, indexed, err := st.ResolveNoteSlugs(ctx, c.ExcludeNotes)
 	if err != nil {
-		return nil, err
+		return nil, &UsageError{Err: fmt.Errorf("exclude note: %w", err)}
 	}
 	seen := make(map[string]struct{}, len(c.ExcludeNotes))
-	resolved := make([]string, 0, len(c.ExcludeNotes))
+	out := make([]string, 0, len(c.ExcludeNotes))
 	for _, raw := range c.ExcludeNotes {
 		value := strings.TrimSpace(raw)
 		if value == "" {
 			continue
 		}
-		slug, err := st.ResolveNoteSlug(ctx, value)
-		if err != nil {
-			return nil, &UsageError{Err: fmt.Errorf("exclude note %q: %w", value, err)}
-		}
+		slug := resolved[value]
 		if slug == "" {
 			continue
 		}
@@ -160,10 +159,10 @@ func (c *SearchCmd) resolveExcludes(ctx context.Context, st *store.Store) ([]str
 		}
 		if _, ok := seen[slug]; !ok {
 			seen[slug] = struct{}{}
-			resolved = append(resolved, slug)
+			out = append(out, slug)
 		}
 	}
-	return resolved, nil
+	return out, nil
 }
 
 func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st *store.Store, emb *embedder.LocalEmbedder, resolved, excluded []string) error {

@@ -40,6 +40,12 @@ type Store struct {
 	links           chroma.Collection
 	mu              sync.RWMutex
 	SkipAttachments bool
+
+	// linkResolver is a lazily built link-target resolution table, reused
+	// across commands within one Store lifetime (see linkResolverLocked).
+	// All access is guarded by mu.
+	linkResolver      map[string]string
+	linkResolverValid bool
 }
 
 // Option configures Store when calling Open.
@@ -125,6 +131,7 @@ func (s *Store) Reset(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("recreate links collection: %w", err)
 	}
+	s.linkResolverValid = false
 	return nil
 }
 

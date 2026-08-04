@@ -472,35 +472,17 @@ func (s *Store) paginatedZeroIndexMetadatas(ctx context.Context) ([]chroma.Docum
 	return paginatedGetMetadatas(ctx, s.chunks, chroma.EqInt("chunk_index", 0))
 }
 
-// paginatedDistinctSlugs returns distinct note_slug values matching the given where filter across paginated queries.
-func (s *Store) paginatedDistinctSlugs(ctx context.Context, where chroma.WhereFilter) ([]string, error) {
-	var slugs []string
-	seen := make(map[string]bool)
-	metas, err := paginatedGetMetadatas(ctx, s.chunks, where)
-	if err != nil {
-		return nil, fmt.Errorf("paginated distinct slugs: %w", wrapChromaErr(err))
-	}
-	for _, m := range metas {
-		slug := metaString(m, "note_slug")
-		if slug != "" && !seen[slug] {
-			seen[slug] = true
-			slugs = append(slugs, slug)
-		}
-	}
-	return slugs, nil
-}
-
 // buildLinkTargetResolver builds a mapping of link targets (titles, basenames, file paths) to canonical note slugs.
 // When two notes share a title or basename, the mapping is ambiguous; the
 // lowest note_slug wins so resolution is deterministic across runs.
-func (s *Store) buildLinkTargetResolver(ctx context.Context) map[string]string {
+func (s *Store) buildLinkTargetResolver(ctx context.Context) (map[string]string, error) {
 	resolver := make(map[string]string)
 	if ctx == nil {
-		return resolver
+		return resolver, nil
 	}
 	metas, err := s.paginatedZeroIndexMetadatas(ctx)
 	if err != nil {
-		return resolver
+		return nil, fmt.Errorf("build link target resolver: %w", wrapChromaErr(err))
 	}
 
 	sort.Slice(metas, func(i, j int) bool {
@@ -547,7 +529,25 @@ func (s *Store) buildLinkTargetResolver(ctx context.Context) map[string]string {
 			}
 		}
 	}
-	return resolver
+	return resolver, nil
+}
+
+// linkResolverLocked returns the link target resolver, building it once per
+// Store lifetime and reusing it across commands; BatchIngest leaves it
+// valid because it is built after chunk upserts (so it already reflects the
+// latest notes), and Reset invalidates it when both collections are swapped.
+// Callers must hold s.mu (read or write).
+func (s *Store) linkResolverLocked(ctx context.Context) (map[string]string, error) {
+	if s.linkResolverValid {
+		return s.linkResolver, nil
+	}
+	resolver, err := s.buildLinkTargetResolver(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.linkResolver = resolver
+	s.linkResolverValid = true
+	return resolver, nil
 }
 
 // linkWhereFilters builds a Chroma WhereFilter matching both exact targetSlug and uncanonicalized candidates.
@@ -589,7 +589,10 @@ func (s *Store) linkWhereFilters(targetSlug string, resolver map[string]string) 
 func (s *Store) Backlinks(ctx context.Context, targetSlug string) ([]Result, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	resolver := s.buildLinkTargetResolver(ctx)
+	resolver, err := s.linkResolverLocked(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("backlinks: %w", err)
+	}
 	res, err := paginatedGetMetadatas(ctx, s.links, s.linkWhereFilters(targetSlug, resolver))
 	if err != nil {
 		return nil, fmt.Errorf("backlinks: %w", wrapChromaErr(err))
@@ -634,7 +637,10 @@ func (s *Store) Backlinks(ctx context.Context, targetSlug string) ([]Result, err
 func (s *Store) Connections(ctx context.Context, seedSlug string, maxHops int) ([]Result, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	resolver := s.buildLinkTargetResolver(ctx)
+	resolver, err := s.linkResolverLocked(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("connections: %w", err)
+	}
 	visited := map[string]int{seedSlug: 0} // slug → hop count
 	frontier := []string{seedSlug}
 
@@ -917,29 +923,56 @@ func (s *Store) SharedTags(ctx context.Context, noteSlug string, minShared int) 
 		return nil, nil
 	}
 
-	// 2. For each seed tag, find all notes that have it
-	noteTagCount := map[string]int{}      // slug → shared tag count
-	noteTagNames := map[string][]string{} // slug → which tags are shared
-
+	// 2. Find every chunk carrying any seed tag in a single paginated scan,
+	// then accumulate per-note shared tags in Go. A per-tag scan would cost
+	// one full vault walk per tag.
+	var union []chroma.WhereClause
 	for _, tag := range seedTags {
-		slugs, err := s.notesWithTag(ctx, tag)
-		if err != nil {
-			return nil, fmt.Errorf("shared tags: %w", err)
+		union = append(union, TagWhereClause(tag))
+	}
+	var where chroma.WhereFilter
+	if len(union) == 1 {
+		where = union[0]
+	} else {
+		where = chroma.Or(union...)
+	}
+	metas, err := paginatedGetMetadatas(ctx, s.chunks, where)
+	if err != nil {
+		return nil, fmt.Errorf("shared tags: %w", wrapChromaErr(err))
+	}
+
+	noteTagSet := map[string]map[string]struct{}{} // slug → shared tags
+	for _, m := range metas {
+		slug := metaString(m, "note_slug")
+		if slug == "" || slug == noteSlug {
+			continue
 		}
-		for _, slug := range slugs {
-			if slug == noteSlug {
-				continue
+		set := noteTagSet[slug]
+		if set == nil {
+			set = make(map[string]struct{})
+			noteTagSet[slug] = set
+		}
+		for _, t := range decodeTags(m) {
+			for _, seed := range seedTags {
+				if t == seed {
+					set[seed] = struct{}{}
+				}
 			}
-			noteTagCount[slug]++
-			noteTagNames[slug] = append(noteTagNames[slug], tag)
 		}
 	}
 
 	// 3. Filter by minShared
 	var out []Result
-	for slug, count := range noteTagCount {
+	for slug, set := range noteTagSet {
+		count := len(set)
 		if count < minShared {
 			continue
+		}
+		names := make([]string, 0, count)
+		for _, t := range seedTags {
+			if _, ok := set[t]; ok {
+				names = append(names, t)
+			}
 		}
 		title, filePath, fileType, found, err := s.noteInfoForSlug(ctx, slug)
 		if err != nil {
@@ -951,7 +984,7 @@ func (s *Store) SharedTags(ctx context.Context, noteSlug string, minShared int) 
 			FilePath:  filePath,
 			FileType:  fileType,
 			Score:     float64(count),
-			Tags:      noteTagNames[slug],
+			Tags:      names,
 			IsPhantom: !found,
 		})
 	}
@@ -1251,7 +1284,10 @@ func getResultToResults(res chroma.GetResult, limit int, includeText bool) []Res
 // linkedSlugs returns a set of note slugs linked to/from slug.
 func (s *Store) linkedSlugs(ctx context.Context, slug string) (map[string]bool, error) {
 	set := map[string]bool{}
-	resolver := s.buildLinkTargetResolver(ctx)
+	resolver, err := s.linkResolverLocked(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out, err := paginatedGetMetadatas(ctx, s.links, chroma.EqString("source_slug", slug))
 	if err != nil {
 		return nil, fmt.Errorf("connections out: %w", wrapChromaErr(err))
@@ -1302,11 +1338,6 @@ func (s *Store) tagsForNote(ctx context.Context, noteSlug string) ([]string, err
 		return nil, nil
 	}
 	return decodeTags(res.GetMetadatas()[0]), nil
-}
-
-// notesWithTag returns distinct note slugs that have the given tag.
-func (s *Store) notesWithTag(ctx context.Context, tag string) ([]string, error) {
-	return s.paginatedDistinctSlugs(ctx, TagWhereClause(tag))
 }
 
 // noteInfoForSlug fetches the title and file path of a note's first chunk.
@@ -1381,20 +1412,67 @@ func (s *Store) ResolveNoteSlug(ctx context.Context, input string) (string, erro
 		)),
 		chroma.WithLimit(1),
 	)
-	s.mu.RUnlock()
 	if err == nil && len(res.GetIDs()) > 0 && len(res.GetMetadatas()) > 0 {
 		mSlug := metaString(res.GetMetadatas()[0], "note_slug")
 		if mSlug != "" {
+			s.mu.RUnlock()
 			return mSlug, nil
 		}
+	}
+	metas, scanErr := s.paginatedZeroIndexMetadatas(ctx)
+	s.mu.RUnlock()
+	if scanErr != nil {
+		return slug, nil
+	}
+	return resolveFromMetas(metas, cleanInput)
+}
+
+// ResolveNoteSlugs resolves multiple user inputs (exact slug, title,
+// filename, or partial path) against a single metadata scan shared across
+// all inputs, so the cost does not grow with the number of inputs. The
+// returned maps contain the resolution of every input (falling back to the
+// slugified input when nothing matches) and every indexed note slug, so
+// callers can distinguish a real match from a fallback.
+func (s *Store) ResolveNoteSlugs(ctx context.Context, inputs []string) (resolved map[string]string, indexed map[string]struct{}, err error) {
+	clean := make([]string, 0, len(inputs))
+	for _, in := range inputs {
+		if t := strings.TrimSpace(in); t != "" {
+			clean = append(clean, t)
+		}
+	}
+	if len(clean) == 0 {
+		return nil, nil, nil
 	}
 
 	s.mu.RLock()
 	metas, err := s.paginatedZeroIndexMetadatas(ctx)
 	s.mu.RUnlock()
 	if err != nil {
-		return slug, nil
+		return nil, nil, fmt.Errorf("resolve note slugs: %w", wrapChromaErr(err))
 	}
+
+	resolved = make(map[string]string, len(clean))
+	indexed = make(map[string]struct{}, len(metas))
+	for _, in := range clean {
+		r, rerr := resolveFromMetas(metas, in)
+		if rerr != nil {
+			return nil, nil, rerr
+		}
+		resolved[in] = r
+	}
+	for _, m := range metas {
+		if slug := metaString(m, "note_slug"); slug != "" {
+			indexed[slug] = struct{}{}
+		}
+	}
+	return resolved, indexed, nil
+}
+
+// resolveFromMetas resolves cleanInput against a set of zero-index metadata
+// records (note_slug, title, file_path). It returns the slugified input when
+// nothing matches.
+func resolveFromMetas(metas []chroma.DocumentMetadata, cleanInput string) (string, error) {
+	slug := parser.Slugify(cleanInput)
 
 	pathMatches, titleMatches, suffixMatches := findSlugMatches(metas, cleanInput, slug)
 
@@ -1428,7 +1506,7 @@ func (s *Store) ResolveNoteSlug(ctx context.Context, input string) (string, erro
 			matchesList = append(matchesList, s)
 		}
 		sort.Strings(matchesList)
-		return "", fmt.Errorf("note %q matches multiple indexed notes: %s (please specify the exact note slug or path)", input, strings.Join(matchesList, ", "))
+		return "", fmt.Errorf("note %q matches multiple indexed notes: %s (please specify the exact note slug or path)", cleanInput, strings.Join(matchesList, ", "))
 	}
 
 	return slug, nil

@@ -103,8 +103,26 @@ func (s *Store) BatchIngest(ctx context.Context, data []BatchIngestData, staleSl
 		}
 	}
 
-	// 4. Batch upsert new links
-	resolver := s.buildLinkTargetResolver(ctx)
+	// 4. Build the link target resolver fresh (never from cache) so links in
+	// this batch resolve against the chunks upserted above, then publish it
+	// as the new cached baseline for subsequent commands.
+	resolver, err := s.buildLinkTargetResolver(ctx)
+	if err != nil {
+		return fmt.Errorf("batch upsert links: %w", err)
+	}
+	s.linkResolver = resolver
+	s.linkResolverValid = true
+
+	hasLinks := false
+	for _, d := range data {
+		if len(d.Links) > 0 {
+			hasLinks = true
+			break
+		}
+	}
+	if !hasLinks {
+		return nil
+	}
 	for _, d := range data {
 		if len(d.Links) > 0 {
 			if err := s.upsertLinks(ctx, d.NoteSlug, d.Links, resolver); err != nil {
