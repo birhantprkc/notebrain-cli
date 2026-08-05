@@ -165,7 +165,7 @@ func (s *Store) semanticSearch(ctx context.Context, queryVec []float32, limit in
 	if err != nil {
 		return nil, fmt.Errorf("semantic search: %w", wrapChromaErr(err))
 	}
-	return deduplicateByNote(res, limit, topKPerNote, includeText), nil
+	return queryResultToResults(res, limit, topKPerNote, includeText), nil
 }
 
 // MultiSemanticSearch executes semantic searches across multiple query vectors, merging results
@@ -232,7 +232,7 @@ func (s *Store) MultiSemanticSearch(ctx context.Context, queryVecs [][]float32, 
 		merged[i] = e.res
 	}
 
-	out := deduplicateResultsByNote(merged, limit, topKPerNote)
+	out := capPerNote(merged, limit, topKPerNote)
 
 	for i := range out {
 		out[i].MatchedQueries = filterMatchedQueries(noteQueryScores[out[i].NoteSlug], float32(out[i].Score))
@@ -374,7 +374,10 @@ func filterMatchedQueries(qsMap map[string]float32, bestNoteScore float32) []str
 	return sortedQueries
 }
 
-func deduplicateResultsByNote(results []Result, limit int, topKPerNote int) []Result {
+// capPerNote retains at most topKPerNote results per note in input order,
+// truncated to limit (limit <= 0 disables truncation). Input order must be
+// best-first for the per-note cap to keep the strongest chunks.
+func capPerNote(results []Result, limit, topKPerNote int) []Result {
 	if topKPerNote <= 0 {
 		topKPerNote = 3
 	}
@@ -740,20 +743,27 @@ func (s *Store) Connections(ctx context.Context, seedSlug string, maxHops int) (
 	return out, nil
 }
 
-func (s *Store) processOutgoingLinks(ctx context.Context, src string, hop int, resolver map[string]string, visited map[string]int, next *[]string) error {
-	out, err := paginatedGetMetadatas(ctx, s.links, chroma.EqString("source_slug", src))
+// processLinks walks one direction of the link graph from src: it fetches the
+// edges matching where, canonicalizes the neighbor slug through the resolver,
+// and appends unseen neighbors to next. resolveTargetPath additionally falls
+// back to the raw target_path text when the canonical slug does not resolve
+// (used for outgoing edges, whose target may be an uncanonical link).
+func (s *Store) processLinks(ctx context.Context, where chroma.WhereFilter, targetField string, resolveTargetPath bool, hop int, resolver map[string]string, visited map[string]int, next *[]string) error {
+	metas, err := paginatedGetMetadatas(ctx, s.links, where)
 	if err != nil {
-		return fmt.Errorf("connections out: %w", wrapChromaErr(err))
+		return fmt.Errorf("connections: %w", wrapChromaErr(err))
 	}
-	for _, meta := range out {
+	for _, meta := range metas {
 		if s.SkipAttachments && (parser.IsAttachmentLink(metaString(meta, "target_path")) || parser.IsAttachmentLink(metaString(meta, "display_text"))) {
 			continue
 		}
-		tgt := metaString(meta, "target_slug")
+		tgt := metaString(meta, targetField)
 		if canon, ok := resolver[tgt]; ok && canon != "" {
 			tgt = canon
-		} else if canon, ok := resolver[metaString(meta, "target_path")]; ok && canon != "" {
-			tgt = canon
+		} else if resolveTargetPath {
+			if canon, ok := resolver[metaString(meta, "target_path")]; ok && canon != "" {
+				tgt = canon
+			}
 		}
 		if _, ok := visited[tgt]; !ok {
 			visited[tgt] = hop
@@ -763,25 +773,12 @@ func (s *Store) processOutgoingLinks(ctx context.Context, src string, hop int, r
 	return nil
 }
 
+func (s *Store) processOutgoingLinks(ctx context.Context, src string, hop int, resolver map[string]string, visited map[string]int, next *[]string) error {
+	return s.processLinks(ctx, chroma.EqString("source_slug", src), "target_slug", true, hop, resolver, visited, next)
+}
+
 func (s *Store) processIncomingLinks(ctx context.Context, src string, hop int, resolver map[string]string, visited map[string]int, next *[]string) error {
-	in, err := paginatedGetMetadatas(ctx, s.links, s.linkWhereFilters(src, resolver))
-	if err != nil {
-		return fmt.Errorf("connections in: %w", wrapChromaErr(err))
-	}
-	for _, meta := range in {
-		if s.SkipAttachments && (parser.IsAttachmentLink(metaString(meta, "target_path")) || parser.IsAttachmentLink(metaString(meta, "display_text"))) {
-			continue
-		}
-		tgt := metaString(meta, "source_slug")
-		if canon, ok := resolver[tgt]; ok && canon != "" {
-			tgt = canon
-		}
-		if _, ok := visited[tgt]; !ok {
-			visited[tgt] = hop
-			*next = append(*next, tgt)
-		}
-	}
-	return nil
+	return s.processLinks(ctx, s.linkWhereFilters(src, resolver), "source_slug", false, hop, resolver, visited, next)
 }
 
 // ─── Hidden Connections ───────────────────────────────────────────
@@ -1263,12 +1260,10 @@ func (s *Store) GraphBoostedSearch(ctx context.Context, queryVec []float32, seed
 
 // ─── Internal helpers ─────────────────────────────────────────────
 
-// deduplicateByNote retains up to topKPerNote chunks per note,
-// sorted overall by highest similarity score.
-func deduplicateByNote(res chroma.QueryResult, limit int, topKPerNote int, includeText bool) []Result {
-	if topKPerNote <= 0 {
-		topKPerNote = 3
-	}
+// queryResultToResults converts a semantic query result into Results,
+// retaining up to topKPerNote chunks per note in query order (best-first by
+// distance) and sorting the survivors by similarity score.
+func queryResultToResults(res chroma.QueryResult, limit int, topKPerNote int, includeText bool) []Result {
 	groups := res.GetMetadatasGroups()
 	if len(groups) == 0 || len(groups[0]) == 0 {
 		return nil
@@ -1288,15 +1283,12 @@ func deduplicateByNote(res chroma.QueryResult, limit int, topKPerNote int, inclu
 		texts = docsGroups[0]
 	}
 
-	noteCounts := make(map[string]int)
-	var out []Result
-
+	out := make([]Result, 0, len(metas))
 	for i, meta := range metas {
 		slug := metaString(meta, "note_slug")
-		if noteCounts[slug] >= topKPerNote {
+		if slug == "" {
 			continue
 		}
-		noteCounts[slug]++
 
 		dist := float32(0)
 		if len(dists) > i {
@@ -1320,13 +1312,14 @@ func deduplicateByNote(res chroma.QueryResult, limit int, topKPerNote int, inclu
 		})
 	}
 
+	out = capPerNote(out, limit, topKPerNote)
 	sort.Slice(out, func(i, j int) bool { return out[i].Score > out[j].Score })
-	if len(out) > limit {
-		out = out[:limit]
-	}
 	return out
 }
 
+// getResultToResults converts a paginated Get result into Results, keeping the
+// first chunk seen per note (Get results are ordered by chunk index, so this
+// is the note's first chunk).
 func getResultToResults(res chroma.GetResult, limit int, includeText bool) []Result {
 	metas := res.GetMetadatas()
 	if len(metas) == 0 {
@@ -1334,57 +1327,31 @@ func getResultToResults(res chroma.GetResult, limit int, includeText bool) []Res
 	}
 	texts := res.GetDocuments()
 
-	type best struct {
-		title       string
-		filePath    string
-		chunkIndex  int
-		headingPath string
-		fileType    string
-		text        string
-		tags        []string
-	}
-	seen := map[string]*best{}
-
+	out := make([]Result, 0, len(metas))
 	for i, meta := range metas {
 		slug := metaString(meta, "note_slug")
 		if slug == "" {
 			continue
 		}
-		if _, ok := seen[slug]; !ok {
-			txt := ""
-			if includeText && len(texts) > i && texts[i] != nil {
-				txt = texts[i].ContentString()
-			}
-			seen[slug] = &best{
-				title:       metaString(meta, "title"),
-				filePath:    metaString(meta, "file_path"),
-				chunkIndex:  metaInt(meta, "chunk_index"),
-				headingPath: metaString(meta, "heading_path"),
-				fileType:    metaString(meta, "file_type"),
-				text:        txt,
-				tags:        decodeTags(meta),
-			}
+		txt := ""
+		if includeText && len(texts) > i && texts[i] != nil {
+			txt = texts[i].ContentString()
 		}
-	}
-
-	var out []Result
-	for slug, b := range seen {
 		out = append(out, Result{
 			NoteSlug:    slug,
-			Title:       b.title,
-			FilePath:    b.filePath,
+			Title:       metaString(meta, "title"),
+			FilePath:    metaString(meta, "file_path"),
 			Score:       1.0,
-			ChunkIndex:  b.chunkIndex,
-			HeadingPath: b.headingPath,
-			FileType:    b.fileType,
-			Text:        b.text,
-			Tags:        b.tags,
+			ChunkIndex:  metaInt(meta, "chunk_index"),
+			HeadingPath: metaString(meta, "heading_path"),
+			FileType:    metaString(meta, "file_type"),
+			Text:        txt,
+			Tags:        decodeTags(meta),
 		})
 	}
+
+	out = capPerNote(out, limit, 1)
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
-	if len(out) > limit {
-		out = out[:limit]
-	}
 	return out
 }
 
