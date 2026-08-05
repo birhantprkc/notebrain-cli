@@ -196,7 +196,7 @@ func TestPrintResultsFormatted_Deep(t *testing.T) {
 	}
 }
 
-func TestPrintResultsFormatted_Deep_AllSections(t *testing.T) {
+func TestPrintResultsFormatted_Deep_CappedSections(t *testing.T) {
 	var buf bytes.Buffer
 
 	results := []store.Result{
@@ -214,8 +214,40 @@ func TestPrintResultsFormatted_Deep_AllSections(t *testing.T) {
 	printResultsFormattedToWriter(&buf, "hidden --deep", "query", "query", nil, results, globals, nil)
 	out := buf.String()
 
-	if !strings.Contains(out, "└─ Matched target sections (5):") || !strings.Contains(out, "\"§ Methodologies\", \"§ Latency\", \"§ Queueing\", \"§ Profiling\", \"§ Caching\"") {
-		t.Errorf("Expected all 5 matched section queries in deep output, got %q", out)
+	if !strings.Contains(out, "└─ Matched target sections (5):") ||
+		!strings.Contains(out, `"§ Methodologies", "§ Latency", "§ Queueing", "… (+2 more)"`) {
+		t.Errorf("Expected capped matched sections with total count in deep output, got %q", out)
+	}
+	if strings.Contains(out, "§ Profiling") || strings.Contains(out, "§ Caching") {
+		t.Errorf("Expected sections beyond the cap to be hidden, got %q", out)
+	}
+}
+
+func TestPrintResultsFormatted_Deep_TitlePrefixStripped(t *testing.T) {
+	var buf bytes.Buffer
+
+	results := []store.Result{
+		{
+			NoteSlug:    "attention",
+			Title:       "Attention Is All You Need",
+			Score:       0.8759,
+			HeadingPath: "Attention Is All You Need > References",
+			Tags:        []string{"llm", "transformers"},
+		},
+	}
+	globals := &Globals{
+		Format:   "text",
+		ShowTags: true,
+	}
+
+	printResultsFormattedToWriter(&buf, "hidden --deep", "query", "query", nil, results, globals, nil)
+	out := buf.String()
+
+	if !strings.Contains(out, "(§ References)") {
+		t.Errorf("Expected heading path with duplicated title segment stripped, got %q", out)
+	}
+	if strings.Contains(out, "(§ Attention Is All You Need > References)") {
+		t.Errorf("Expected the full title not to repeat inside the section suffix, got %q", out)
 	}
 }
 

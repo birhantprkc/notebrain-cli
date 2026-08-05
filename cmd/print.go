@@ -228,7 +228,10 @@ func printTextResults(w io.Writer, commandName, query string, queries []string, 
 		}
 
 		if r.HeadingPath != "" {
-			displayTitle = fmt.Sprintf("%s (§ %s)", displayTitle, r.HeadingPath)
+			short := store.TrimHeadingTitlePrefix(r.Title, r.HeadingPath)
+			if short != "" {
+				displayTitle = fmt.Sprintf("%s (§ %s)", displayTitle, short)
+			}
 		} else if noteCounts[r.NoteSlug] > 1 {
 			displayTitle = fmt.Sprintf("%s (chunk #%d)", displayTitle, r.ChunkIndex+1)
 		}
@@ -291,10 +294,23 @@ func printTextResults(w io.Writer, commandName, query string, queries []string, 
 	_, _ = fmt.Fprintln(w)
 }
 
+// maxMatchedSectionsShown caps the number of section paths printed on the
+// "Matched target sections" line. The total count stays in the header, so
+// long section lists remain readable without wrapping or mid-path truncation.
+const maxMatchedSectionsShown = 3
+
 func printDeepDetails(w io.Writer, r store.Result, termWidth int, _ *Globals) {
 	var details []string
 	if len(r.MatchedQueries) > 0 {
-		details = append(details, fmt.Sprintf("Matched target sections (%d): %s", len(r.MatchedQueries), extraStyle.Render(`"`+strings.Join(r.MatchedQueries, `", "`)+`"`)))
+		shown := r.MatchedQueries
+		if len(shown) > maxMatchedSectionsShown {
+			shown = shown[:maxMatchedSectionsShown]
+		}
+		text := `"` + strings.Join(shown, `", "`) + `"`
+		if len(r.MatchedQueries) > maxMatchedSectionsShown {
+			text += fmt.Sprintf(`, "… (+%d more)"`, len(r.MatchedQueries)-maxMatchedSectionsShown)
+		}
+		details = append(details, fmt.Sprintf("Matched target sections (%d): %s", len(r.MatchedQueries), extraStyle.Render(text)))
 	}
 	if len(r.Tags) > 0 {
 		details = append(details, fmt.Sprintf("Tags: %s", extraStyle.Render(strings.Join(formatTagChips(r.Tags), " "))))

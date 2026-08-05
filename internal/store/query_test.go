@@ -1427,3 +1427,74 @@ func TestHiddenConnectionsDeep_NoSpuriousWarnings(t *testing.T) {
 		t.Errorf("expected no truncation warnings for limit=30 deep search, got %d:\n%s", got, buf.String())
 	}
 }
+
+func TestTrimHeadingTitlePrefix(t *testing.T) {
+	cases := []struct {
+		name  string
+		title string
+		path  string
+		want  string
+	}{
+		{
+			name:  "exact title match strips first segment",
+			title: "Attention Is All You Need",
+			path:  "Attention Is All You Need > References",
+			want:  "References",
+		},
+		{
+			name:  "deep heading path keeps remainder",
+			title: "The Annotated Transformer",
+			path:  "The Annotated Transformer > 3 Model Architecture > 3.2 Attention",
+			want:  "3 Model Architecture > 3.2 Attention",
+		},
+		{
+			name:  "punctuation drift between title and H1",
+			title: "Switch Transformers Scaling to Trillion Parameter Models with Simple and Efficient Sparsity",
+			path:  "Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity > References",
+			want:  "References",
+		},
+		{
+			name:  "whole path is the title yields empty",
+			title: "The Annotated Transformer",
+			path:  "The Annotated Transformer",
+			want:  "",
+		},
+		{
+			name:  "unrelated first segment stays",
+			title: "2. Artificial Neural Networks (ANNs) - Detailed Study Notes",
+			path:  "9. Modern Deep Learning Architectures > Architecture 4: Transformers",
+			want:  "9. Modern Deep Learning Architectures > Architecture 4: Transformers",
+		},
+		{
+			name:  "single segment without separator stays",
+			title: "The Annotated Transformer",
+			path:  "References",
+			want:  "References",
+		},
+		{
+			name:  "short title never strips",
+			title: "AI",
+			path:  "AI Revolution > Intro",
+			want:  "AI Revolution > Intro",
+		},
+		{
+			name:  "empty title stays",
+			title: "",
+			path:  "Intro > Sub",
+			want:  "Intro > Sub",
+		},
+		{
+			name:  "empty path stays",
+			title: "Attention",
+			path:  "",
+			want:  "",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := store.TrimHeadingTitlePrefix(tc.title, tc.path); got != tc.want {
+				t.Errorf("TrimHeadingTitlePrefix(%q, %q) = %q, want %q", tc.title, tc.path, got, tc.want)
+			}
+		})
+	}
+}

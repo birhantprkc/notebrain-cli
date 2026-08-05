@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
 	"github.com/amikos-tech/chroma-go/pkg/embeddings"
@@ -37,6 +38,57 @@ func clampSemanticLimit(limit int) int {
 		return ffiSafeSemanticLimit
 	}
 	return limit
+}
+
+// minHeadingTitlePrefixLen is the shortest normalized title that can absorb
+// a leading heading-path segment. Short titles are common words ("AI", "Go")
+// that often prefix unrelated headings, so the strip is only safe above this
+// length.
+const minHeadingTitlePrefixLen = 12
+
+// TrimHeadingTitlePrefix removes the leading heading-path segment when it
+// duplicates the note title. PDF heading paths begin with the document's own
+// H1 title (for example "Attention Is All You Need > 3 Model Architecture").
+// Showing the title and the full path together repeats the same text, so the
+// display strips the duplicated segment.
+//
+// The comparison normalizes both strings to lowercase alphanumerics. This
+// tolerates punctuation drift between the slug-derived title and the PDF H1
+// (for example a colon after the first word). When the whole path is just the
+// title, the result is empty.
+func TrimHeadingTitlePrefix(title, headingPath string) string {
+	path := strings.TrimSpace(headingPath)
+	if path == "" || title == "" {
+		return path
+	}
+	parts := strings.SplitN(path, " > ", 2)
+	first := normalizeHeadingSegment(parts[0])
+	normTitle := normalizeHeadingSegment(title)
+	if first == "" || normTitle == "" {
+		return path
+	}
+	shorter, longer := first, normTitle
+	if len(longer) < len(shorter) {
+		shorter, longer = longer, shorter
+	}
+	if strings.HasPrefix(longer, shorter) && len(shorter) >= minHeadingTitlePrefixLen {
+		if len(parts) == 2 {
+			return parts[1]
+		}
+		return ""
+	}
+	return path
+}
+
+// normalizeHeadingSegment lowercases a heading segment and keeps only letters
+// and digits. It drops punctuation so title and H1 variants compare equal.
+func normalizeHeadingSegment(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToLower(r)
+		}
+		return -1
+	}, s)
 }
 
 // WhereFilter is the ChromaDB where-filter type used by search methods. It
@@ -842,12 +894,12 @@ func (s *Store) HiddenConnectionsDeep(ctx context.Context, seedSlug string, limi
 		vec := embs[i].ContentAsFloat32()
 		idx := metaInt(m, "chunk_index")
 		hp := metaString(m, "heading_path")
+		title := metaString(m, "title")
 		label := ""
 		switch {
 		case hp != "":
-			label = "§ " + hp
+			label = "§ " + TrimHeadingTitlePrefix(title, hp)
 		case idx == 0:
-			title := metaString(m, "title")
 			if title != "" {
 				label = "§ " + title
 			} else {
