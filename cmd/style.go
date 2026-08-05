@@ -16,6 +16,7 @@ var (
 	colorGood      color.Color
 	colorWarn      color.Color
 	colorError     color.Color
+	colorDoc       color.Color
 	headerStyle    lipgloss.Style
 	scoreStyle     lipgloss.Style
 	warnScoreStyle lipgloss.Style
@@ -28,6 +29,7 @@ var (
 	labelStyle     lipgloss.Style
 	warnBoldStyle  lipgloss.Style
 	errorStyle     lipgloss.Style
+	pdfTagStyle    lipgloss.Style
 )
 
 // stdoutAllowsColor reports whether ANSI colors may be emitted on stdout.
@@ -36,6 +38,10 @@ var (
 func stdoutAllowsColor() bool {
 	return term.IsTerminal(os.Stdout.Fd()) && os.Getenv("TERM") != "dumb" && os.Getenv("NO_COLOR") == ""
 }
+
+// stdoutColorEnabled is the color decision used by initStyles. It is a
+// variable so tests can swap the TTY/NO_COLOR check without a pty.
+var stdoutColorEnabled = stdoutAllowsColor
 
 func initStyles() {
 	stylesOnce.Do(func() {
@@ -47,8 +53,9 @@ func initStyles() {
 		colorGood = lightDark(lipgloss.Color("#0F6E56"), lipgloss.Color("#5DCAA5"))   // teal
 		colorWarn = lightDark(lipgloss.Color("#C4841D"), lipgloss.Color("#F5A623"))   // amber/orange
 		colorError = lightDark(lipgloss.Color("#B3261E"), lipgloss.Color("#FF6B6B"))  // red
+		colorDoc = lightDark(lipgloss.Color("#2F6FD8"), lipgloss.Color("#82AFFF"))    // blue
 
-		if !stdoutAllowsColor() {
+		if !stdoutColorEnabled() {
 			// Plain rendering for piped/redirected stdout: keep layout
 			// (borders, padding, width) but drop colors and text effects so
 			// that NO_COLOR, TERM=dumb, and non-TTY output stay clean.
@@ -70,6 +77,7 @@ func initStyles() {
 			labelStyle = lipgloss.NewStyle()
 			warnBoldStyle = lipgloss.NewStyle()
 			errorStyle = lipgloss.NewStyle()
+			pdfTagStyle = lipgloss.NewStyle()
 			return
 		}
 
@@ -120,6 +128,10 @@ func initStyles() {
 
 		errorStyle = lipgloss.NewStyle().
 			Foreground(colorError)
+
+		pdfTagStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(colorDoc)
 	})
 }
 

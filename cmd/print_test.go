@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
@@ -512,4 +513,47 @@ func TestPrintResultsFormatted_HyperlinkFooter(t *testing.T) {
 	if !strings.Contains(buf.String(), "(Ctrl+click / Cmd+click a title to open in Obsidian)") {
 		t.Errorf("Expected hyperlink click footer when ShowFilePath=true, got %q", buf.String())
 	}
+}
+
+func TestPrintResultsFormatted_PDFTag(t *testing.T) {
+	results := []store.Result{
+		{NoteSlug: "pdf-note", Title: "Attention Is All You Need", FilePath: "papers/a.pdf", Score: 0.6, FileType: "pdf"},
+		{NoteSlug: "md-note", Title: "Plain Note", FilePath: "notes/plain.md", Score: 0.6, FileType: "md"},
+	}
+	globals := &Globals{Format: "text"}
+
+	t.Run("plain", func(t *testing.T) {
+		stdoutColorEnabled = stdoutAllowsColor
+		stylesOnce = sync.Once{}
+
+		var buf bytes.Buffer
+		printResultsFormattedToWriter(&buf, "search", "q", "q", nil, results, globals, nil)
+		out := buf.String()
+		if count := strings.Count(out, "[PDF] "); count != 1 {
+			t.Errorf("expected [PDF] tag on exactly 1 result, got %d: %q", count, out)
+		}
+		if strings.Contains(out, "\x1b[") {
+			t.Errorf("unexpected ANSI codes in plain output: %q", out)
+		}
+	})
+
+	t.Run("colored", func(t *testing.T) {
+		old := stdoutColorEnabled
+		stdoutColorEnabled = func() bool { return true }
+		stylesOnce = sync.Once{}
+		defer func() {
+			stdoutColorEnabled = old
+			stylesOnce = sync.Once{}
+		}()
+
+		var buf bytes.Buffer
+		printResultsFormattedToWriter(&buf, "search", "q", "q", nil, results, globals, nil)
+		out := buf.String()
+		if count := strings.Count(out, "[PDF] "); count != 1 {
+			t.Errorf("expected [PDF] tag on exactly 1 result, got %d: %q", count, out)
+		}
+		if !strings.Contains(out, "\x1b[") {
+			t.Errorf("expected ANSI codes around [PDF] tag, got: %q", out)
+		}
+	})
 }

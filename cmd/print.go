@@ -224,7 +224,7 @@ func printTextResults(w io.Writer, commandName, query string, queries []string, 
 
 		displayTitle := r.Title
 		if r.FileType == "pdf" {
-			displayTitle = "[PDF] " + displayTitle
+			displayTitle = pdfTagStyle.Render("[PDF] ") + displayTitle
 		}
 
 		if r.HeadingPath != "" {
