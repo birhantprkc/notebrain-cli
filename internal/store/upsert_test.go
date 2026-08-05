@@ -42,8 +42,8 @@ func TestBatchIngestChunkLifecycle(t *testing.T) {
 	}
 
 	stats, _ := st.Stats(ctx)
-	if stats["chunks"] != 2 {
-		t.Errorf("Expected 2 chunks, got %d", stats["chunks"])
+	if stats.Chunks != 2 {
+		t.Errorf("Expected 2 chunks, got %d", stats.Chunks)
 	}
 
 	// Re-ingest with a single chunk should replace the note's chunks.
@@ -55,8 +55,8 @@ func TestBatchIngestChunkLifecycle(t *testing.T) {
 	}
 
 	stats, _ = st.Stats(ctx)
-	if stats["chunks"] != 1 {
-		t.Errorf("Expected 1 chunk after re-ingest, got %d", stats["chunks"])
+	if stats.Chunks != 1 {
+		t.Errorf("Expected 1 chunk after re-ingest, got %d", stats.Chunks)
 	}
 
 	// Delete the whole note via stale slugs.
@@ -65,8 +65,8 @@ func TestBatchIngestChunkLifecycle(t *testing.T) {
 	}
 
 	stats, _ = st.Stats(ctx)
-	if stats["chunks"] != 0 {
-		t.Errorf("Expected 0 chunks after delete, got %d", stats["chunks"])
+	if stats.Chunks != 0 {
+		t.Errorf("Expected 0 chunks after delete, got %d", stats.Chunks)
 	}
 }
 
@@ -82,8 +82,8 @@ func TestBatchIngestLinkLifecycle(t *testing.T) {
 	}
 
 	stats, _ := st.Stats(ctx)
-	if stats["links"] != 1 {
-		t.Errorf("Expected 1 link, got %d", stats["links"])
+	if stats.Links != 1 {
+		t.Errorf("Expected 1 link, got %d", stats.Links)
 	}
 
 	// Re-ingest should replace, not duplicate.
@@ -91,8 +91,8 @@ func TestBatchIngestLinkLifecycle(t *testing.T) {
 		t.Fatalf("BatchIngest twice failed: %v", err)
 	}
 	stats, _ = st.Stats(ctx)
-	if stats["links"] != 1 {
-		t.Errorf("Expected 1 link after replacement, got %d", stats["links"])
+	if stats.Links != 1 {
+		t.Errorf("Expected 1 link after replacement, got %d", stats.Links)
 	}
 
 	// Delete links by re-ingesting without links.
@@ -103,8 +103,8 @@ func TestBatchIngestLinkLifecycle(t *testing.T) {
 		t.Fatalf("BatchIngest without links failed: %v", err)
 	}
 	stats, _ = st.Stats(ctx)
-	if stats["links"] != 0 {
-		t.Errorf("Expected 0 links after delete, got %d", stats["links"])
+	if stats.Links != 0 {
+		t.Errorf("Expected 0 links after delete, got %d", stats.Links)
 	}
 }
 
@@ -137,7 +137,7 @@ func TestBatchIngest(t *testing.T) {
 	}
 
 	stats, _ := st.Stats(ctx)
-	if stats["chunks"] != 3 || stats["links"] != 2 {
+	if stats.Chunks != 3 || stats.Links != 2 {
 		t.Errorf("Expected 3 chunks, 2 links after initial batch, got %v", stats)
 	}
 
@@ -170,7 +170,7 @@ func TestBatchIngest(t *testing.T) {
 	// - note-b: deleted (0 chunks, 0 links)
 	// - note-c: 1 chunk, 0 links
 	// Total: chunks = 2 (note-a:0, note-c:0), links = 1 (note-a -> note-c)
-	if stats["chunks"] != 2 || stats["links"] != 1 {
+	if stats.Chunks != 2 || stats.Links != 1 {
 		t.Errorf("Expected 2 chunks, 1 link after updates/delete, got %v", stats)
 	}
 }

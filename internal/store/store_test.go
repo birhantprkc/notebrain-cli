@@ -21,14 +21,14 @@ func TestStoreOpenClose(t *testing.T) {
 		t.Fatalf("Stats failed: %v", err)
 	}
 
-	if stats["chunks"] != 0 {
-		t.Errorf("Expected 0 chunks, got %d", stats["chunks"])
+	if stats.Chunks != 0 {
+		t.Errorf("Expected 0 chunks, got %d", stats.Chunks)
 	}
-	if stats["links"] != 0 {
-		t.Errorf("Expected 0 links, got %d", stats["links"])
+	if stats.Links != 0 {
+		t.Errorf("Expected 0 links, got %d", stats.Links)
 	}
-	if stats["notes"] != 0 {
-		t.Errorf("Expected 0 notes, got %d", stats["notes"])
+	if stats.Notes != 0 {
+		t.Errorf("Expected 0 notes, got %d", stats.Notes)
 	}
 }
 
@@ -84,11 +84,11 @@ func TestStats_UniqueNotesCount(t *testing.T) {
 		t.Fatalf("Stats failed: %v", err)
 	}
 
-	if stats["chunks"] != 3 {
-		t.Errorf("Expected 3 chunks, got %d", stats["chunks"])
+	if stats.Chunks != 3 {
+		t.Errorf("Expected 3 chunks, got %d", stats.Chunks)
 	}
-	if stats["notes"] != 2 {
-		t.Errorf("Expected 2 distinct notes, got %d", stats["notes"])
+	if stats.Notes != 2 {
+		t.Errorf("Expected 2 distinct notes, got %d", stats.Notes)
 	}
 }
 
@@ -130,7 +130,7 @@ func TestStoreOpen_StrictPersistentOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stats failed: %v", err)
 	}
-	if stats["chunks"] != 0 || stats["links"] != 0 {
+	if stats.Chunks != 0 || stats.Links != 0 {
 		t.Errorf("Expected empty initial collections, got %v", stats)
 	}
 

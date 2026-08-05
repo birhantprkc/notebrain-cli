@@ -95,11 +95,11 @@ func TestPipelineRun(t *testing.T) {
 	}
 
 	stats, _ := st.Stats(ctx)
-	if stats["chunks"] != 3 {
-		t.Errorf("Expected 3 chunks (note1, note2, nested), got %d", stats["chunks"])
+	if stats.Chunks != 3 {
+		t.Errorf("Expected 3 chunks (note1, note2, nested), got %d", stats.Chunks)
 	}
-	if stats["links"] != 2 {
-		t.Errorf("Expected 2 links, got %d", stats["links"])
+	if stats.Links != 2 {
+		t.Errorf("Expected 2 links, got %d", stats.Links)
 	}
 }
 
@@ -129,7 +129,7 @@ func TestPipelineSyncDeleted(t *testing.T) {
 	}
 
 	stats, _ := st.Stats(ctx)
-	if stats["chunks"] != 2 || stats["links"] != 2 {
+	if stats.Chunks != 2 || stats.Links != 2 {
 		t.Fatalf("Expected 2 chunks, 2 links initially, got %v", stats)
 	}
 
@@ -145,11 +145,11 @@ func TestPipelineSyncDeleted(t *testing.T) {
 
 	// 3. Verify that note2 has been cleaned up (only 1 chunk and 1 link for note1 remain)
 	stats, _ = st.Stats(ctx)
-	if stats["chunks"] != 1 {
-		t.Errorf("Expected 1 chunk remaining after sync, got %d", stats["chunks"])
+	if stats.Chunks != 1 {
+		t.Errorf("Expected 1 chunk remaining after sync, got %d", stats.Chunks)
 	}
-	if stats["links"] != 1 {
-		t.Errorf("Expected 1 link remaining after sync, got %d", stats["links"])
+	if stats.Links != 1 {
+		t.Errorf("Expected 1 link remaining after sync, got %d", stats.Links)
 	}
 }
 
@@ -179,14 +179,14 @@ func TestPipeline_PreservesIndexWhenAllChunksFiltered(t *testing.T) {
 
 	run(0) // index everything
 	stats, _ := st.Stats(ctx)
-	if stats["chunks"] != 2 {
-		t.Fatalf("Expected 2 chunks after initial ingest, got %d", stats["chunks"])
+	if stats.Chunks != 2 {
+		t.Fatalf("Expected 2 chunks after initial ingest, got %d", stats.Chunks)
 	}
 
 	run(50) // all chunks of note1 now filtered
 	stats, _ = st.Stats(ctx)
-	if stats["chunks"] != 2 {
-		t.Errorf("Expected previously indexed notes to be preserved, got %d chunks", stats["chunks"])
+	if stats.Chunks != 2 {
+		t.Errorf("Expected previously indexed notes to be preserved, got %d chunks", stats.Chunks)
 	}
 }
 
@@ -215,8 +215,8 @@ func TestPipelineMinChunkWords(t *testing.T) {
 	}
 
 	stats, _ := st.Stats(ctx)
-	if stats["chunks"] != 1 {
-		t.Errorf("Expected 1 chunk (only note2), got %d", stats["chunks"])
+	if stats.Chunks != 1 {
+		t.Errorf("Expected 1 chunk (only note2), got %d", stats.Chunks)
 	}
 }
 
@@ -250,8 +250,8 @@ func TestPipelineRespectExclude(t *testing.T) {
 	}
 
 	stats, _ := st.Stats(ctx)
-	if stats["chunks"] != 1 {
-		t.Errorf("Expected 1 chunk (only active.md), got %d", stats["chunks"])
+	if stats.Chunks != 1 {
+		t.Errorf("Expected 1 chunk (only active.md), got %d", stats.Chunks)
 	}
 }
 
@@ -334,8 +334,8 @@ func TestPipeline_CodeOnlyNoteIngest(t *testing.T) {
 	}
 
 	stats, _ := st.Stats(ctx)
-	if stats["chunks"] != 1 {
-		t.Errorf("Expected 1 chunk for code-only note, got %d", stats["chunks"])
+	if stats.Chunks != 1 {
+		t.Errorf("Expected 1 chunk for code-only note, got %d", stats.Chunks)
 	}
 }
 

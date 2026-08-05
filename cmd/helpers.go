@@ -25,7 +25,7 @@ type storeAPI interface {
 	GraphBoostedSearch(ctx context.Context, queryVec []float32, seedSlug string, boost float64, limit int, whereFilter store.WhereFilter, includeText bool) ([]store.Result, error)
 	GetNote(ctx context.Context, slugOrPath string) (*store.NoteContent, error)
 	GetNoteMetadata(ctx context.Context) (map[string]store.NoteMeta, error)
-	Stats(ctx context.Context) (map[string]int64, error)
+	Stats(ctx context.Context) (*store.Stats, error)
 	PopulateContext(ctx context.Context, results []store.Result, windowSize int) error
 	Reset(ctx context.Context) error
 }

@@ -740,6 +740,17 @@ type HiddenOptions struct {
 
 type HiddenOption func(*HiddenOptions)
 
+// applyHiddenOptions applies the given options to a fresh HiddenOptions.
+func applyHiddenOptions(options ...HiddenOption) HiddenOptions {
+	opts := HiddenOptions{}
+	for _, opt := range options {
+		if opt != nil {
+			opt(&opts)
+		}
+	}
+	return opts
+}
+
 // WithIncludeLinked allows returning notes that are already linked to/from the seed note.
 func WithIncludeLinked(includeLinked bool) HiddenOption {
 	return func(o *HiddenOptions) {
@@ -750,12 +761,7 @@ func WithIncludeLinked(includeLinked bool) HiddenOption {
 // HiddenConnections finds notes semantically similar to queryVec
 // but NOT already linked to/from seedSlug (unless WithIncludeLinked is set).
 func (s *Store) HiddenConnections(ctx context.Context, queryVec []float32, seedSlug string, limit int, includeText bool, options ...HiddenOption) ([]Result, error) {
-	opts := HiddenOptions{}
-	for _, opt := range options {
-		if opt != nil {
-			opt(&opts)
-		}
-	}
+	opts := applyHiddenOptions(options...)
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -793,12 +799,7 @@ func (s *Store) HiddenConnections(ctx context.Context, queryVec []float32, seedS
 // HiddenConnectionsDeep runs chunk-by-chunk semantic comparison between all chunks of seedSlug
 // and all other chunks in the vault. Returns deduplicated results and the labels of the seed chunks analyzed.
 func (s *Store) HiddenConnectionsDeep(ctx context.Context, seedSlug string, limit int, topKPerNote int, includeText bool, options ...HiddenOption) ([]Result, []string, error) {
-	opts := HiddenOptions{}
-	for _, opt := range options {
-		if opt != nil {
-			opt(&opts)
-		}
-	}
+	opts := applyHiddenOptions(options...)
 	limit = clampSemanticLimit(limit)
 
 	resolved, err := s.ResolveNoteSlug(ctx, seedSlug)

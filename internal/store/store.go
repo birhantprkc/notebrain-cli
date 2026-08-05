@@ -135,8 +135,16 @@ func (s *Store) Reset(ctx context.Context) error {
 	return nil
 }
 
+// Stats reports collection counts. The typed struct (rather than a
+// string-keyed map) keeps cmd/stats.go and JSON output safe from typos.
+type Stats struct {
+	Notes  int64 `json:"notes"`
+	Chunks int64 `json:"chunks"`
+	Links  int64 `json:"links"`
+}
+
 // Stats returns document counts for collections and distinct notes.
-func (s *Store) Stats(ctx context.Context) (map[string]int64, error) {
+func (s *Store) Stats(ctx context.Context) (*Stats, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	nc, err := s.chunks.Count(ctx)
@@ -173,9 +181,5 @@ func (s *Store) Stats(ctx context.Context) (map[string]int64, error) {
 		}
 		distinctNotes = int64(len(seen))
 	}
-	return map[string]int64{
-		"chunks": int64(nc),
-		"links":  int64(nl),
-		"notes":  distinctNotes,
-	}, nil
+	return &Stats{Chunks: int64(nc), Links: int64(nl), Notes: distinctNotes}, nil
 }

@@ -25,6 +25,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/nmdra/notebrain-cli/v2/internal/store"
 )
 
 type StatsCmd struct {
@@ -50,14 +52,10 @@ func (c *StatsCmd) Run(globals *Globals) error {
 	if globals.Format == formatJSON {
 		env := struct {
 			Command string `json:"command"`
-			Notes   int64  `json:"notes"`
-			Chunks  int64  `json:"chunks"`
-			Links   int64  `json:"links"`
+			*store.Stats
 		}{
 			Command: "stats",
-			Notes:   stats["notes"],
-			Chunks:  stats["chunks"],
-			Links:   stats["links"],
+			Stats:   stats,
 		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
@@ -66,16 +64,16 @@ func (c *StatsCmd) Run(globals *Globals) error {
 
 	if globals.Format == formatTSV {
 		fmt.Println("notes\tchunks\tlinks")
-		fmt.Printf("%d\t%d\t%d\n", stats["notes"], stats["chunks"], stats["links"])
+		fmt.Printf("%d\t%d\t%d\n", stats.Notes, stats.Chunks, stats.Links)
 		return nil
 	}
 
 	initStyles()
 	rows := fmt.Sprintf(
 		"%s  %d\n%s  %d\n%s  %d",
-		labelStyle.Render("Notes "), stats["notes"],
-		labelStyle.Render("Chunks"), stats["chunks"],
-		labelStyle.Render("Links "), stats["links"],
+		labelStyle.Render("Notes "), stats.Notes,
+		labelStyle.Render("Chunks"), stats.Chunks,
+		labelStyle.Render("Links "), stats.Links,
 	)
 
 	fmt.Println()
