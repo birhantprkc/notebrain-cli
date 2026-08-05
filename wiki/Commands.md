@@ -333,7 +333,7 @@ notebrain connections "Redis" --hops 2
 
 ### `hidden`
 
-This command finds hidden semantic connections. These are notes that are semantically similar, but do not have direct Wikilinks in Obsidian. You can use the `--deep` flag for a chunk-by-chunk analysis. This analysis finds exact matching sections between notes. It does not require whole-note embedding comparisons.
+This command finds hidden semantic connections. These are notes that are semantically similar, but do not have direct Wikilinks in Obsidian. You can use the `--deep` flag for a chunk-by-chunk analysis. This analysis finds exact matching sections between notes. It does not require whole-note embedding comparisons. For the exact ranking rules of `--deep`, read the [Ranking](Ranking.md) document.
 
 #### Usage
 
@@ -354,6 +354,16 @@ notebrain hidden <note> [flags]
 | `--candidate-chunks` | `integer` | _(None)_ | The maximum number of matching target sections to evaluate and show for each candidate note (in `--deep` mode). Replaces `--top-k`. |
 | `--top-k`          | `integer` | `3`     | A deprecated alias for `--candidate-chunks`.                                                                                                      |
 | `--limit`          | `integer` | `10`    | The maximum number of hidden connections to show.                                                                                      |
+
+#### How `--deep` Ranking Works
+
+The `--deep` mode does not rank candidates by the whole-note similarity score. It ranks them by the breadth of section overlap. The tool runs one vector query per chunk of the seed note. It counts how many distinct seed-note sections matched each candidate. The primary sort key is this count, descending. The secondary sort key is the best similarity score, descending.
+
+The tool shows a `Matched target sections (N)` tag for each candidate. This number counts only the sections that passed the score thresholds. The thresholds remove weak matches. The shown number can be lower than the true number of matching sections. For example, a note can match 15 sections, but the tool shows only 1. A score close to 1.0 shows all sections. A low score shows only the best one.
+
+The top candidates on the list are often those with the widest section overlap, not the highest single score. An exact single-section match can outrank a candidate with one strong section.
+
+For the full flow, read the [Ranking](Ranking.md) document.
 
 #### Examples
 

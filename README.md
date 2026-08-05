@@ -191,6 +191,7 @@ To uninstall NoteBrain, remove the `notebrain` binary and delete the `~/.notebra
 | [Installation](wiki/Installation.md)                       | Prerequisites, pre-built binaries, and compilation commands              |
 | [Commands Reference](wiki/Commands.md)                     | Full CLI command and flag information                                    |
 | [Architecture](wiki/Architecture.md)                       | Internal functions: chunking pipeline, embeddings, and ChromaDB schema   |
+| [Ranking](wiki/Ranking.md)                                 | How NoteBrain ranks search and hidden connection results                 |
 | [PDF Ingestion](wiki/PDF_Ingestion.md)                     | LLM-based text extraction from PDF attachments                          |
 | [Scheduled Ingestion](wiki/Scheduled_Ingestion.md)         | Instructions for cron and systemd timers to index data in the background |
 | [Shell Completion](wiki/Shell_Completion.md)               | Tab completion setup for bash, zsh, and fish                             |
