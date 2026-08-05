@@ -49,5 +49,5 @@ func (c *BacklinksCmd) Run(globals *Globals) error {
 		return err
 	}
 
-	return printResultsFormatted("backlinks", fmt.Sprintf("Backlinks for: %q (slug: %s)", targetNote, targetSlug), targetSlug, links, globals, nil)
+	return printResultsFormatted("backlinks", fmt.Sprintf("Backlinks for: %q (slug: %s)", targetNote, targetSlug), targetSlug, nil, links, globals, nil)
 }

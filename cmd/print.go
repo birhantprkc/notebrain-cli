@@ -48,13 +48,15 @@ type jsonEnvelope struct {
 }
 
 // printResultsFormatted renders a list of results to stdout based on the
-// requested format. It returns an error (e.g. an invalid JSONPath) so
-// commands can exit non-zero; stats/get already fail on JSONPath errors.
-func printResultsFormatted(commandName string, headerQuery string, rawQuery string, results []store.Result, globals *Globals, displayFlags *ChunkDisplayFlags) error {
-	return printResultsFormattedToWriter(os.Stdout, commandName, headerQuery, rawQuery, results, globals, displayFlags)
+// requested format. queries carries the raw search queries that produced the
+// results (used for per-query hit attribution and the JSON "queries" field);
+// pass nil when not applicable. It returns an error (e.g. an invalid JSONPath)
+// so commands can exit non-zero; stats/get already fail on JSONPath errors.
+func printResultsFormatted(commandName string, headerQuery string, rawQuery string, queries []string, results []store.Result, globals *Globals, displayFlags *ChunkDisplayFlags) error {
+	return printResultsFormattedToWriter(os.Stdout, commandName, headerQuery, rawQuery, queries, results, globals, displayFlags)
 }
 
-func printResultsFormattedToWriter(w io.Writer, commandName string, headerQuery string, rawQuery string, results []store.Result, globals *Globals, displayFlags *ChunkDisplayFlags) error {
+func printResultsFormattedToWriter(w io.Writer, commandName string, headerQuery string, rawQuery string, queries []string, results []store.Result, globals *Globals, displayFlags *ChunkDisplayFlags) error {
 	initStyles()
 	filtered := filterResults(results, globals, displayFlags)
 
@@ -71,7 +73,7 @@ func printResultsFormattedToWriter(w io.Writer, commandName string, headerQuery 
 		env := jsonEnvelope{
 			Command: cmdName,
 			Query:   queryStr,
-			Queries: globals.Queries,
+			Queries: queries,
 			Total:   len(filtered),
 			Results: filtered,
 		}
@@ -80,11 +82,11 @@ func printResultsFormattedToWriter(w io.Writer, commandName string, headerQuery 
 
 	switch globals.Format {
 	case formatJSON:
-		printJSONResults(w, cmdName, queryStr, filtered, globals)
+		printJSONResults(w, cmdName, queryStr, queries, filtered)
 	case formatTSV:
 		printTSVResults(w, filtered)
 	default: // "text"
-		printTextResults(w, commandName, headerQuery, filtered, globals)
+		printTextResults(w, commandName, headerQuery, queries, filtered, globals)
 	}
 	return nil
 }
@@ -120,11 +122,11 @@ func filterResults(results []store.Result, globals *Globals, displayFlags *Chunk
 	return filtered
 }
 
-func printJSONResults(w io.Writer, commandName, query string, filtered []store.Result, globals *Globals) {
+func printJSONResults(w io.Writer, commandName, query string, queries []string, filtered []store.Result) {
 	env := jsonEnvelope{
 		Command: commandName,
 		Query:   query,
-		Queries: globals.Queries,
+		Queries: queries,
 		Total:   len(filtered),
 		Results: filtered,
 	}
@@ -191,7 +193,7 @@ func emptyResultHint(commandName string) string {
 	return ""
 }
 
-func printTextResults(w io.Writer, commandName, query string, filtered []store.Result, globals *Globals) {
+func printTextResults(w io.Writer, commandName, query string, queries []string, filtered []store.Result, globals *Globals) {
 	termWidth := getTerminalWidth()
 
 	header := headerStyle
@@ -275,7 +277,7 @@ func printTextResults(w io.Writer, commandName, query string, filtered []store.R
 			}
 			line += "  " + extraStyle.Render("["+strings.Join(formattedTags, " ")+"]")
 		}
-		if len(r.MatchedQueries) > 0 && len(globals.Queries) > 1 {
+		if len(r.MatchedQueries) > 0 && len(queries) > 1 {
 			line += "  " + extraStyle.Render(`[hits: "`+strings.Join(r.MatchedQueries, `", "`)+`"]`)
 		}
 

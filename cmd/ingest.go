@@ -27,6 +27,7 @@ import (
 
 	"github.com/nmdra/notebrain-cli/v2/internal/embedder"
 	"github.com/nmdra/notebrain-cli/v2/internal/ingest"
+	"github.com/nmdra/notebrain-cli/v2/internal/store"
 )
 
 type IngestCmd struct {
@@ -54,7 +55,7 @@ func (c *IngestCmd) Run(globals *Globals) error {
 	ctx := globals.Ctx
 
 	slog.Info("opening vector store", "chroma_path", chromaPath)
-	st, err := openStore(ctx, globals)
+	st, err := store.Open(ctx, chromaPath)
 	if err != nil {
 		return err
 	}

@@ -51,5 +51,5 @@ func (c *ConnectionsCmd) Run(globals *Globals) error {
 		return err
 	}
 
-	return printResultsFormatted(fmt.Sprintf("connections --hops %d", hops), fmt.Sprintf("Graph Connections from: %q (slug: %s) [Hops: %d]", targetNote, targetSlug, hops), targetSlug, nodes, globals, nil)
+	return printResultsFormatted(fmt.Sprintf("connections --hops %d", hops), fmt.Sprintf("Graph Connections from: %q (slug: %s) [Hops: %d]", targetNote, targetSlug, hops), targetSlug, nil, nodes, globals, nil)
 }

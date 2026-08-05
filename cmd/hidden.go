@@ -73,14 +73,13 @@ func (c *HiddenCmd) Run(globals *Globals) error {
 		if err = st.PopulateContext(ctx, results, c.ContextWindow); err != nil {
 			return fmt.Errorf("populate context: %w", err)
 		}
-		globals.Queries = seedChunks
 		cmdName := "hidden --deep"
 		title := fmt.Sprintf("Deep chunk-by-chunk hidden connections for: %q (slug: %s) [%d target chunks analyzed]", targetNote, targetSlug, len(seedChunks))
 		if c.IncludeLinked {
 			cmdName = "hidden --deep --include-linked"
 			title = fmt.Sprintf("Deep chunk-by-chunk related connections (including linked) for: %q (slug: %s) [%d target chunks analyzed]", targetNote, targetSlug, len(seedChunks))
 		}
-		return printResultsFormatted(cmdName, title, targetSlug, results, globals, &c.ChunkDisplayFlags)
+		return printResultsFormatted(cmdName, title, targetSlug, seedChunks, results, globals, &c.ChunkDisplayFlags)
 	}
 
 	emb, err := embedder.NewLocalEmbedder()
@@ -109,5 +108,5 @@ func (c *HiddenCmd) Run(globals *Globals) error {
 		cmdName = "hidden --include-linked"
 		title = fmt.Sprintf("Related connections (including linked) for: %q (slug: %s)", targetNote, targetSlug)
 	}
-	return printResultsFormatted(cmdName, title, targetSlug, results, globals, &c.ChunkDisplayFlags)
+	return printResultsFormatted(cmdName, title, targetSlug, nil, results, globals, &c.ChunkDisplayFlags)
 }

@@ -22,7 +22,7 @@ func TestPrintResultsFormatted_Phantom(t *testing.T) {
 		SkipPhantom: true,
 	}
 
-	printResultsFormattedToWriter(&buf, "test", "query", "query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "test", "query", "query", nil, results, globals, nil)
 	out := buf.String()
 
 	if !strings.Contains(out, "Real Note") {
@@ -35,7 +35,7 @@ func TestPrintResultsFormatted_Phantom(t *testing.T) {
 	// Now test SkipPhantom = false
 	buf.Reset()
 	globals.SkipPhantom = false
-	printResultsFormattedToWriter(&buf, "test", "query", "query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "test", "query", "query", nil, results, globals, nil)
 	out2 := buf.String()
 
 	if !strings.Contains(out2, "Real Note") || !strings.Contains(out2, "Phantom Note") {
@@ -57,7 +57,7 @@ func TestPrintResultsFormatted_ChunkDisambiguationAndFooter(t *testing.T) {
 		Format: "text",
 	}
 
-	printResultsFormattedToWriter(&buf, "search", "query", "query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "search", "query", "query", nil, results, globals, nil)
 	out := buf.String()
 
 	if !strings.Contains(out, "OpenChoreo (§ Architecture > Overview)") {
@@ -90,7 +90,7 @@ func TestPrintResultsFormatted_Truncation(t *testing.T) {
 		Format: "text",
 	}
 
-	printResultsFormattedToWriter(&buf, "search", "query", "query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "search", "query", "query", nil, results, globals, nil)
 	out := buf.String()
 
 	if !strings.Contains(out, "…") {
@@ -118,11 +118,10 @@ func TestPrintResultsFormatted_MultiQuery(t *testing.T) {
 		},
 	}
 	globals := &Globals{
-		Format:  "text",
-		Queries: []string{"redis", "broker"},
+		Format: "text",
 	}
 
-	printResultsFormattedToWriter(&buf, "search", "redis | broker", "redis | broker", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "search", "redis | broker", "redis | broker", []string{"redis", "broker"}, results, globals, nil)
 	out := buf.String()
 
 	if !strings.Contains(out, `[hits: "redis", "broker"]`) {
@@ -141,7 +140,7 @@ func TestPrintResultsFormatted_ShowTags(t *testing.T) {
 		ShowTags: false,
 	}
 
-	printResultsFormattedToWriter(&buf, "test", "query", "query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "test", "query", "query", nil, results, globals, nil)
 	out := buf.String()
 
 	if strings.Contains(out, "#Database/Redis") || strings.Contains(out, "#Backend") {
@@ -154,7 +153,7 @@ func TestPrintResultsFormatted_ShowTags(t *testing.T) {
 	// Now test ShowTags = true
 	buf.Reset()
 	globals.ShowTags = true
-	printResultsFormattedToWriter(&buf, "test", "query", "query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "test", "query", "query", nil, results, globals, nil)
 	out2 := buf.String()
 
 	if !strings.Contains(out2, "#Database/Redis") || !strings.Contains(out2, "#Backend") {
@@ -182,7 +181,7 @@ func TestPrintResultsFormatted_Deep(t *testing.T) {
 	}
 	flags := &ChunkDisplayFlags{IncludeText: true}
 
-	printResultsFormattedToWriter(&buf, "hidden --deep", "query", "query", results, globals, flags)
+	printResultsFormattedToWriter(&buf, "hidden --deep", "query", "query", nil, results, globals, flags)
 	out := buf.String()
 
 	if !strings.Contains(out, "├─ Matched target sections (2):") || !strings.Contains(out, "\"§ Ownership\", \"§ Lifetimes\"") {
@@ -211,7 +210,7 @@ func TestPrintResultsFormatted_Deep_AllSections(t *testing.T) {
 		Format: "text",
 	}
 
-	printResultsFormattedToWriter(&buf, "hidden --deep", "query", "query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "hidden --deep", "query", "query", nil, results, globals, nil)
 	out := buf.String()
 
 	if !strings.Contains(out, "└─ Matched target sections (5):") || !strings.Contains(out, "\"§ Methodologies\", \"§ Latency\", \"§ Queueing\", \"§ Profiling\", \"§ Caching\"") {
@@ -267,11 +266,11 @@ func TestPrintResultsFormatted_JSONPathError(t *testing.T) {
 	results := []store.Result{{NoteSlug: "n", Title: "N", Score: 0.5}}
 	globals := &Globals{JSONPath: "invalid[syntax[["}
 
-	if err := printResultsFormattedToWriter(&buf, "search", "q", "q", results, globals, nil); err == nil {
+	if err := printResultsFormattedToWriter(&buf, "search", "q", "q", nil, results, globals, nil); err == nil {
 		t.Error("expected error for invalid jsonpath syntax, got nil")
 	}
 	globals.JSONPath = "$.nonexistent"
-	if err := printResultsFormattedToWriter(&buf, "search", "q", "q", results, globals, nil); err == nil {
+	if err := printResultsFormattedToWriter(&buf, "search", "q", "q", nil, results, globals, nil); err == nil {
 		t.Error("expected error for unknown key, got nil")
 	}
 	if buf.Len() != 0 {
@@ -294,7 +293,7 @@ func TestPrintResultsFormatted_Formats(t *testing.T) {
 
 	// Test JSON format
 	globals := &Globals{Format: "json"}
-	printResultsFormattedToWriter(&buf, "search", "query", "query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "search", "query", "query", nil, results, globals, nil)
 	if !strings.Contains(buf.String(), `"note_slug": "json-note"`) && !strings.Contains(buf.String(), `"note_slug":"json-note"`) {
 		t.Errorf("Expected json output containing note_slug, got %q", buf.String())
 	}
@@ -302,7 +301,7 @@ func TestPrintResultsFormatted_Formats(t *testing.T) {
 	// Test TSV format
 	buf.Reset()
 	globals.Format = "tsv"
-	printResultsFormattedToWriter(&buf, "search", "query", "query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "search", "query", "query", nil, results, globals, nil)
 	outTSV := buf.String()
 	if !strings.Contains(outTSV, "slug\ttitle\tfile_path") || !strings.Contains(outTSV, "json-note\tJSON Note") {
 		t.Errorf("Expected tsv header and row, got %q", outTSV)
@@ -323,7 +322,7 @@ func TestPrintTSVResults_EscapesMultilineText(t *testing.T) {
 	}
 	globals := &Globals{Format: "tsv"}
 	flags := &ChunkDisplayFlags{IncludeText: true}
-	printResultsFormattedToWriter(&buf, "search", "query", "query", results, globals, flags)
+	printResultsFormattedToWriter(&buf, "search", "query", "query", nil, results, globals, flags)
 	out := buf.String()
 
 	lines := strings.Split(strings.TrimSpace(out), "\n")
@@ -353,7 +352,7 @@ func TestPrintResultsFormatted_MinScore(t *testing.T) {
 	}
 	flags := &ChunkDisplayFlags{MinScore: 0.5}
 
-	printResultsFormattedToWriter(&buf, "search", "query", "query", results, globals, flags)
+	printResultsFormattedToWriter(&buf, "search", "query", "query", nil, results, globals, flags)
 	out := buf.String()
 
 	if !strings.Contains(out, "High Score Note") {
@@ -370,7 +369,7 @@ func TestPrintResultsFormatted_ScoreRounding(t *testing.T) {
 		{NoteSlug: "test-note", Title: "Test Note", Score: 0.7655627727508545},
 	}
 	globals := &Globals{Format: "json"}
-	printResultsFormattedToWriter(&buf, "search", "query", "query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "search", "query", "query", nil, results, globals, nil)
 	out := buf.String()
 	if !strings.Contains(out, "0.7656") {
 		t.Errorf("Expected rounded score 0.7656 in json output, got %q", out)
@@ -386,7 +385,7 @@ func TestPrintResultsFormatted_RawQuery(t *testing.T) {
 		{NoteSlug: "test-note", Title: "Test Note", Score: 0.9},
 	}
 	globals := &Globals{Format: "json"}
-	printResultsFormattedToWriter(&buf, "search", "Semantic Search: \"my query\"", "my query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "search", "Semantic Search: \"my query\"", "my query", nil, results, globals, nil)
 	out := buf.String()
 	if !strings.Contains(out, `"query": "my query"`) {
 		t.Errorf("Expected raw query in json output, got %q", out)
@@ -398,7 +397,7 @@ func TestPrintResultsFormatted_RawQuery(t *testing.T) {
 	// But in text format, decorated header should be used
 	buf.Reset()
 	globals.Format = "text"
-	printResultsFormattedToWriter(&buf, "search", "Semantic Search: \"my query\"", "my query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "search", "Semantic Search: \"my query\"", "my query", nil, results, globals, nil)
 	outText := buf.String()
 	if !strings.Contains(outText, "Semantic Search:") {
 		t.Errorf("Expected decorated header in text output, got %q", outText)
@@ -411,7 +410,7 @@ func TestPrintResultsFormatted_ShowFilePath(t *testing.T) {
 		{NoteSlug: "test-note", Title: "Test Note", FilePath: "notes/test.md", Score: 0.9},
 	}
 	globals := &Globals{Format: "json", ShowFilePath: false}
-	printResultsFormattedToWriter(&buf, "search", "query", "query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "search", "query", "query", nil, results, globals, nil)
 	out := buf.String()
 	if strings.Contains(out, `"file_path":`) {
 		t.Errorf("Did not expect file_path field when ShowFilePath=false, got %q", out)
@@ -426,7 +425,7 @@ func TestPrintResultsFormatted_ShowFilePath(t *testing.T) {
 	// Verify ShowFilePath=true includes it
 	buf.Reset()
 	globals.ShowFilePath = true
-	printResultsFormattedToWriter(&buf, "search", "query", "query", results, globals, nil)
+	printResultsFormattedToWriter(&buf, "search", "query", "query", nil, results, globals, nil)
 	outFull := buf.String()
 	if !strings.Contains(outFull, `"file_path": "notes/test.md"`) {
 		t.Errorf("Expected file_path field when ShowFilePath=true, got %q", outFull)
@@ -473,7 +472,7 @@ func TestPrintResultsFormatted_HeaderWidth(t *testing.T) {
 	getTerminalWidth = func() int { return 80 }
 
 	longQuery := `Deep chunk-by-chunk hidden connections for: "00 fleeting notes/hands-on-llm/1 - An Introduction to LLM" (slug: 00fleeting-noteshands-on-llm1-an-introduction-to-llm) [31 target chunks analyzed]`
-	printResultsFormattedToWriter(&buf, "hidden --deep", longQuery, longQuery, results, globals, nil)
+	printResultsFormattedToWriter(&buf, "hidden --deep", longQuery, longQuery, nil, results, globals, nil)
 
 	lines := strings.Split(buf.String(), "\n")
 	separatorLines := 0
@@ -501,7 +500,7 @@ func TestPrintResultsFormatted_HyperlinkFooter(t *testing.T) {
 
 	// When ShowFilePath = false, hyperlink footer should NOT be present
 	globalsFalse := &Globals{Format: "text", ShowFilePath: false}
-	printResultsFormattedToWriter(&buf, "search", "query", "query", results, globalsFalse, nil)
+	printResultsFormattedToWriter(&buf, "search", "query", "query", nil, results, globalsFalse, nil)
 	if strings.Contains(buf.String(), "(Ctrl+click / Cmd+click a title to open in Obsidian)") {
 		t.Errorf("Did not expect hyperlink click footer when ShowFilePath=false, got %q", buf.String())
 	}
@@ -509,7 +508,7 @@ func TestPrintResultsFormatted_HyperlinkFooter(t *testing.T) {
 	// When ShowFilePath = true, hyperlink footer SHOULD be present
 	buf.Reset()
 	globalsTrue := &Globals{Format: "text", ShowFilePath: true}
-	printResultsFormattedToWriter(&buf, "search", "query", "query", results, globalsTrue, nil)
+	printResultsFormattedToWriter(&buf, "search", "query", "query", nil, results, globalsTrue, nil)
 	if !strings.Contains(buf.String(), "(Ctrl+click / Cmd+click a title to open in Obsidian)") {
 		t.Errorf("Expected hyperlink click footer when ShowFilePath=true, got %q", buf.String())
 	}

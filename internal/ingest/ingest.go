@@ -45,6 +45,13 @@ type Embedder interface {
 	Model() string
 }
 
+// Store abstracts the vector-store methods the pipeline uses so it can be
+// tested with fakes.
+type Store interface {
+	BatchIngest(ctx context.Context, data []store.BatchIngestData, staleSlugs []string) error
+	GetNoteMetadata(ctx context.Context) (map[string]store.NoteMeta, error)
+}
+
 // FailedFile records a file that failed during ingestion along with the failure reason.
 type FailedFile struct {
 	FilePath string `json:"file_path"`
@@ -53,7 +60,7 @@ type FailedFile struct {
 
 // Pipeline orchestrates the ingestion of markdown files into the ChromaDB store.
 type Pipeline struct {
-	store            *store.Store
+	store            Store
 	embedder         Embedder
 	workers          int
 	MinChunkWords    int // minimum word count to keep a chunk (filters junk)
@@ -91,7 +98,7 @@ func (p *Pipeline) FailedFiles() []FailedFile {
 
 // NewPipeline creates an ingestion pipeline with the given number of concurrent workers.
 // Set ChunkSize, ChunkOverlap, and MinChunkWords on the returned Pipeline before calling Run.
-func NewPipeline(s *store.Store, e Embedder, workers int) *Pipeline {
+func NewPipeline(s Store, e Embedder, workers int) *Pipeline {
 	if workers <= 0 {
 		workers = 1
 	}

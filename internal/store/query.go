@@ -39,6 +39,11 @@ func clampSemanticLimit(limit int) int {
 	return limit
 }
 
+// WhereFilter is the ChromaDB where-filter type used by search methods. It
+// is re-exported so callers outside the store package (e.g. cmd) can declare
+// filters without importing the Chroma SDK directly.
+type WhereFilter = chroma.WhereFilter
+
 // Result is one row returned by any query.
 type Result struct {
 	NoteSlug       string   `json:"note_slug"`

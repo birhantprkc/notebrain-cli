@@ -97,8 +97,11 @@ func (c *SearchCmd) Run(globals *Globals) error {
 	if c.TopKPerNote >= 4 {
 		fmt.Fprintf(os.Stderr, "warning: --top-k >= 4 may exceed upstream ChromaDB embedded 1 MiB FFI limit on large notes\n")
 	}
+	// Only multi-query runs produce per-query hit attribution; keep queries
+	// nil otherwise so JSON output omits the "queries" field.
+	var displayQueries []string
 	if len(resolved) > 1 {
-		globals.Queries = resolved
+		displayQueries = resolved
 	}
 
 	ctx := globals.Ctx
@@ -120,7 +123,7 @@ func (c *SearchCmd) Run(globals *Globals) error {
 	}
 	defer func() { _ = emb.Close() }()
 
-	return c.runStatic(ctx, globals, st, emb, resolved, excluded)
+	return c.runStatic(ctx, globals, st, emb, resolved, displayQueries, excluded)
 }
 
 // resolveExcludes normalizes, resolves, and validates --exclude-note values.
@@ -129,7 +132,7 @@ func (c *SearchCmd) Run(globals *Globals) error {
 // reported as a warning so typos do not silently no-op. Returns the resolved
 // slugs, deduplicated. An ambiguous value (matching multiple notes) is a
 // usage error and aborts the command.
-func (c *SearchCmd) resolveExcludes(ctx context.Context, st *store.Store) ([]string, error) {
+func (c *SearchCmd) resolveExcludes(ctx context.Context, st storeAPI) ([]string, error) {
 	if len(c.ExcludeNotes) == 0 {
 		return nil, nil
 	}
@@ -163,7 +166,7 @@ func (c *SearchCmd) resolveExcludes(ctx context.Context, st *store.Store) ([]str
 	return out, nil
 }
 
-func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st *store.Store, emb *embedder.LocalEmbedder, resolved, excluded []string) error {
+func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st storeAPI, emb embedderAPI, resolved, displayQueries, excluded []string) error {
 	whereFilter := (&store.SearchFilter{
 		Section:     c.Section,
 		Tag:         c.Tag,
@@ -187,7 +190,7 @@ func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st *store.S
 		if err := st.PopulateContext(ctx, results, c.ContextWindow); err != nil {
 			return fmt.Errorf("populate context: %w", err)
 		}
-		return printResultsFormatted("search", fmt.Sprintf("Tag Search: %q%s", c.Tag, excludeSuffix), c.Tag, results, globals, &c.ChunkDisplayFlags)
+		return printResultsFormatted("search", fmt.Sprintf("Tag Search: %q%s", c.Tag, excludeSuffix), c.Tag, displayQueries, results, globals, &c.ChunkDisplayFlags)
 	}
 
 	if len(resolved) > 1 {
@@ -208,7 +211,7 @@ func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st *store.S
 			header += fmt.Sprintf(" (Tag: %s)", c.Tag)
 		}
 		header += excludeSuffix
-		return printResultsFormatted("search", header, strings.Join(resolved, " | "), results, globals, &c.ChunkDisplayFlags)
+		return printResultsFormatted("search", header, strings.Join(resolved, " | "), displayQueries, results, globals, &c.ChunkDisplayFlags)
 	}
 
 	qVec, err := emb.Embed(ctx, resolved[0])
@@ -223,5 +226,5 @@ func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st *store.S
 		return fmt.Errorf("populate context: %w", err)
 	}
 
-	return printResultsFormatted("search", fmt.Sprintf("Semantic Search: %q%s", resolved[0], excludeSuffix), resolved[0], results, globals, &c.ChunkDisplayFlags)
+	return printResultsFormatted("search", fmt.Sprintf("Semantic Search: %q%s", resolved[0], excludeSuffix), resolved[0], displayQueries, results, globals, &c.ChunkDisplayFlags)
 }

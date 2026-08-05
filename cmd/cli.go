@@ -79,7 +79,6 @@ type Globals struct {
 	// Internal fields, not exposed as flags
 	Ctx           context.Context `kong:"-"`
 	VersionString string          `kong:"-"`
-	Queries       []string        `kong:"-"`
 	DefaultConfig []byte          `kong:"-"`
 
 	Config kong.ConfigFlag `group:"global" placeholder:"path" help:"path to config file (default: ~/.notebrain/config/config.toml)" type:"path"`
