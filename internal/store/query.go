@@ -994,21 +994,67 @@ func (s *Store) SharedTags(ctx context.Context, noteSlug string, minShared int) 
 
 // ─── Direct Tag Search ────────────────────────────────────────────
 
+// SearchFilter describes the user-facing filters applied to a search query.
+// Commands build one instead of constructing Chroma's filter DSL directly,
+// keeping the "which fields are queryable" contract inside the store.
+type SearchFilter struct {
+	Section    string   // heading_path equality
+	Tag        string   // any-tag equality (OR over tag_0..tag_19)
+	HasTasks   bool     // only chunks containing task lists
+	HasCode    bool     // only chunks containing fenced code blocks
+	IncludePDF bool     // false restricts results to file_type == "md"
+	Exclude    []string // note_slugs to skip (Nin filter)
+	// ResolveTags controls whether Tag participates in the filter; it is
+	// false when the tag drives its own search path (TagSearch).
+	ResolveTags bool
+}
+
+// Build compiles the filter into a Chroma WhereFilter, or nil when no
+// filtering is requested.
+func (f *SearchFilter) Build() chroma.WhereFilter {
+	filters := make([]chroma.WhereClause, 0, 6)
+	if f.Section != "" {
+		filters = append(filters, chroma.EqString("heading_path", f.Section))
+	}
+	if f.HasTasks {
+		filters = append(filters, chroma.EqBool("has_task", true))
+	}
+	if f.HasCode {
+		filters = append(filters, chroma.EqBool("has_code", true))
+	}
+	if !f.IncludePDF {
+		filters = append(filters, chroma.EqString("file_type", "md"))
+	}
+	if f.ResolveTags && f.Tag != "" {
+		filters = append(filters, TagWhereClause(f.Tag))
+	}
+	if len(f.Exclude) > 0 {
+		filters = append(filters, chroma.NinString("note_slug", f.Exclude...))
+	}
+	switch len(filters) {
+	case 0:
+		return nil
+	case 1:
+		return filters[0]
+	default:
+		return chroma.And(filters...)
+	}
+}
+
 // CombineWhereFilters safely combines two optional WhereFilters using And.
-func CombineWhereFilters(f1, f2 chroma.WhereFilter) chroma.WhereFilter {
+func CombineWhereFilters(f1, f2 chroma.WhereFilter) (chroma.WhereFilter, error) {
 	if f1 == nil {
-		return f2
+		return f2, nil
 	}
 	if f2 == nil {
-		return f1
+		return f1, nil
 	}
 	wc1, ok1 := f1.(chroma.WhereClause)
 	wc2, ok2 := f2.(chroma.WhereClause)
 	if ok1 && ok2 {
-		return chroma.And(wc1, wc2)
+		return chroma.And(wc1, wc2), nil
 	}
-	slog.Warn("CombineWhereFilters: could not combine filters, using first only")
-	return f1
+	return nil, fmt.Errorf("cannot combine where filters of non-clause types (%T, %T)", f1, f2)
 }
 
 const maxNoteTags = 20
@@ -1078,14 +1124,17 @@ func (s *Store) TagSearch(ctx context.Context, tag string, limit int, hierarchic
 	}
 
 	// Exact match mode (fully optimized at the database level)
-	filter := CombineWhereFilters(TagWhereClause(tag), whereFilter)
+	filter, err := CombineWhereFilters(TagWhereClause(tag), whereFilter)
+	if err != nil {
+		return nil, fmt.Errorf("tag search: %w", err)
+	}
 	includes := []chroma.Include{chroma.IncludeMetadatas}
 	if includeText {
 		includes = append(includes, chroma.IncludeDocuments)
 	}
 
 	var allMerged []Result
-	err := getPages(ctx, s.chunks, func(offset int) []chroma.GetOption {
+	err = getPages(ctx, s.chunks, func(offset int) []chroma.GetOption {
 		return []chroma.GetOption{
 			chroma.WithWhere(filter),
 			chroma.WithInclude(includes...),
@@ -1422,7 +1471,9 @@ func (s *Store) ResolveNoteSlug(ctx context.Context, input string) (string, erro
 	metas, scanErr := s.paginatedZeroIndexMetadatas(ctx)
 	s.mu.RUnlock()
 	if scanErr != nil {
-		return slug, nil
+		// A failed scan is a broken index, not a missing note: surface it
+		// instead of falling back to a slugified guess.
+		return "", fmt.Errorf("resolve note %q: %w", cleanInput, wrapChromaErr(scanErr))
 	}
 	return resolveFromMetas(metas, cleanInput)
 }

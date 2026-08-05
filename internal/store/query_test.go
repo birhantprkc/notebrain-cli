@@ -537,14 +537,17 @@ func TestCombineWhereFilters(t *testing.T) {
 	wc1 := chroma.EqString("note_slug", "note-a")
 	wc2 := chroma.EqInt("chunk_index", 0)
 
-	if got := store.CombineWhereFilters(nilFilter, wc1); got != wc1 {
-		t.Errorf("Expected wc1 when f1 is nil")
+	got, err := store.CombineWhereFilters(nilFilter, wc1)
+	if err != nil || got != wc1 {
+		t.Errorf("Expected wc1 when f1 is nil, got %v (err %v)", got, err)
 	}
-	if got := store.CombineWhereFilters(wc2, nilFilter); got != wc2 {
-		t.Errorf("Expected wc2 when f2 is nil")
+	got, err = store.CombineWhereFilters(wc2, nilFilter)
+	if err != nil || got != wc2 {
+		t.Errorf("Expected wc2 when f2 is nil, got %v (err %v)", got, err)
 	}
-	if got := store.CombineWhereFilters(wc1, wc2); got == nil {
-		t.Errorf("Expected combined clause when both non-nil")
+	got, err = store.CombineWhereFilters(wc1, wc2)
+	if err != nil || got == nil {
+		t.Errorf("Expected combined clause when both non-nil, got %v (err %v)", got, err)
 	}
 }
 

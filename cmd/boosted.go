@@ -25,9 +25,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
-
 	"github.com/nmdra/notebrain-cli/v2/internal/embedder"
+	"github.com/nmdra/notebrain-cli/v2/internal/store"
 )
 
 type BoostedCmd struct {
@@ -37,13 +36,6 @@ type BoostedCmd struct {
 	Boost   float64 `group:"boosted" help:"score multiplier for graph-connected results (e.g. 1.5 = 50% boost)" default:"1.5"`
 	WithPDF bool    `group:"boosted" help:"include PDF results in search"`
 	ChunkDisplayFlags
-}
-
-func (c *BoostedCmd) buildWhereFilter() chroma.WhereFilter {
-	if !c.WithPDF {
-		return chroma.EqString("file_type", "md")
-	}
-	return nil
 }
 
 func (c *BoostedCmd) Run(globals *Globals) error {
@@ -76,7 +68,7 @@ func (c *BoostedCmd) Run(globals *Globals) error {
 		return err
 	}
 
-	whereFilter := c.buildWhereFilter()
+	whereFilter := (&store.SearchFilter{IncludePDF: c.WithPDF}).Build()
 	results, err := st.GraphBoostedSearch(ctx, qVec, seedSlug, boost, limit, whereFilter, c.IncludeText)
 	if err != nil {
 		return err

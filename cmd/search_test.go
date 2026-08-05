@@ -185,19 +185,16 @@ func TestBuildWhereFilter_ExcludeNotes(t *testing.T) {
 	}
 
 	t.Run("no excludes leaves filter unchanged", func(t *testing.T) {
-		c := &SearchCmd{WithPDF: true}
-		if got := c.buildWhereFilter(false, nil); got != nil {
+		if got := (&store.SearchFilter{IncludePDF: true}).Build(); got != nil {
 			t.Errorf("expected nil filter, got %v", got)
 		}
-		c = &SearchCmd{}
-		if got := c.buildWhereFilter(false, nil); got == nil {
+		if got := (&store.SearchFilter{}).Build(); got == nil {
 			t.Error("expected file_type filter, got nil")
 		}
 	})
 
 	t.Run("excludes add a NinString clause", func(t *testing.T) {
-		c := &SearchCmd{WithPDF: true}
-		m := filterJSON(t, c.buildWhereFilter(false, []string{"alpha", "beta"}))
+		m := filterJSON(t, (&store.SearchFilter{IncludePDF: true, Exclude: []string{"alpha", "beta"}}).Build())
 		nin, ok := m["note_slug"].(map[string]any)["$nin"].([]any)
 		if !ok {
 			t.Fatalf("expected $nin clause on note_slug, got %v", m)
@@ -208,8 +205,12 @@ func TestBuildWhereFilter_ExcludeNotes(t *testing.T) {
 	})
 
 	t.Run("excludes combine with tag and section filters", func(t *testing.T) {
-		c := &SearchCmd{Section: "Architecture > Components", Tag: "kubernetes"}
-		m := filterJSON(t, c.buildWhereFilter(true, []string{"alpha"}))
+		m := filterJSON(t, (&store.SearchFilter{
+			Section:     "Architecture > Components",
+			Tag:         "kubernetes",
+			ResolveTags: true,
+			Exclude:     []string{"alpha"},
+		}).Build())
 		and, ok := m["$and"].([]any)
 		if !ok {
 			t.Fatalf("expected AND-combined filter, got %v", m)

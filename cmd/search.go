@@ -29,8 +29,6 @@ import (
 	"os"
 	"strings"
 
-	chroma "github.com/amikos-tech/chroma-go/pkg/api/v2"
-
 	"github.com/nmdra/notebrain-cli/v2/internal/embedder"
 	"github.com/nmdra/notebrain-cli/v2/internal/store"
 )
@@ -166,7 +164,15 @@ func (c *SearchCmd) resolveExcludes(ctx context.Context, st *store.Store) ([]str
 }
 
 func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st *store.Store, emb *embedder.LocalEmbedder, resolved, excluded []string) error {
-	whereFilter := c.buildWhereFilter(len(resolved) > 0, excluded)
+	whereFilter := (&store.SearchFilter{
+		Section:     c.Section,
+		Tag:         c.Tag,
+		HasTasks:    c.HasTasks,
+		HasCode:     c.HasCode,
+		IncludePDF:  c.WithPDF,
+		Exclude:     excluded,
+		ResolveTags: len(resolved) > 0,
+	}).Build()
 
 	excludeSuffix := ""
 	if len(excluded) > 0 {
@@ -218,33 +224,4 @@ func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st *store.S
 	}
 
 	return printResultsFormatted("search", fmt.Sprintf("Semantic Search: %q%s", resolved[0], excludeSuffix), resolved[0], results, globals, &c.ChunkDisplayFlags)
-}
-
-func (c *SearchCmd) buildWhereFilter(resolveTags bool, excluded []string) chroma.WhereFilter {
-	filters := make([]chroma.WhereClause, 0, 5)
-	if c.Section != "" {
-		filters = append(filters, chroma.EqString("heading_path", c.Section))
-	}
-	if c.HasTasks {
-		filters = append(filters, chroma.EqBool("has_task", true))
-	}
-	if c.HasCode {
-		filters = append(filters, chroma.EqBool("has_code", true))
-	}
-	if !c.WithPDF {
-		filters = append(filters, chroma.EqString("file_type", "md"))
-	}
-	if c.Tag != "" && resolveTags {
-		filters = append(filters, store.TagWhereClause(c.Tag))
-	}
-	if len(excluded) > 0 {
-		filters = append(filters, chroma.NinString("note_slug", excluded...))
-	}
-	if len(filters) == 1 {
-		return filters[0]
-	}
-	if len(filters) > 1 {
-		return chroma.And(filters...)
-	}
-	return nil
 }
