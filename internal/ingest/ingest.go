@@ -376,43 +376,14 @@ func (p *Pipeline) processFile(ctx context.Context, vaultPath string, filePath s
 		return p.processPdfFile(ctx, vaultPath, filePath, knownHashes)
 	}
 
-	relPath, err := filepath.Rel(vaultPath, filePath)
-	if err != nil {
+	relPath, slug, title, content, hash, changed, err := p.noteIdentity(vaultPath, filePath, knownHashes)
+	if err != nil || !changed {
 		return nil, err
 	}
 
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	slug := parser.Slugify(relPath)
-
-	hash := fileHash(content, p.ChunkSize, p.ChunkOverlap, p.embedder.Model())
-	if knownHashes[slug] == hash {
-		return nil, nil
-	}
-
-	title := parser.TitleFromPath(relPath)
-	astRes := parser.Parse(string(content), slug, p.ChunkSize, p.ChunkOverlap, p.SkipAttachments)
-
-	if ft, ok := astRes.Frontmatter["title"].(string); ok && ft != "" {
-		title = ft
-	}
-
-	records, err := p.buildChunkRecords(ctx, &astRes, slug, title, relPath, hash, fileTypeMD)
-	if err != nil {
-		return nil, err
-	}
-	if len(records) == 0 {
-		return nil, nil
-	}
-
-	return &store.BatchIngestData{
-		NoteSlug:     slug,
-		ChunkRecords: records,
-		Links:        astRes.Links,
-	}, nil
+	// Frontmatter title overrides the filename-derived title for markdown
+	// notes only; PDF titles come from the file name (see processPdfFile).
+	return p.buildIngestData(ctx, relPath, slug, title, hash, fileTypeMD, string(content), true)
 }
 
 // estimateTokens returns a conservative rough token count for English/mixed text.
@@ -495,25 +466,10 @@ func isCodeOnlyChunk(text string) bool {
 }
 
 func (p *Pipeline) processPdfFile(ctx context.Context, vaultPath string, filePath string, knownHashes map[string]string) (*store.BatchIngestData, error) {
-	relPath, err := filepath.Rel(vaultPath, filePath)
-	if err != nil {
+	relPath, slug, title, _, hash, changed, err := p.noteIdentity(vaultPath, filePath, knownHashes)
+	if err != nil || !changed {
 		return nil, err
 	}
-
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	slug := parser.Slugify(relPath)
-	hash := fileHash(content, p.ChunkSize, p.ChunkOverlap, p.embedder.Model())
-	if knownHashes[slug] == hash {
-		return nil, nil // Skip unchanged
-	}
-
-	title := parser.TitleFromPath(relPath)
-
-	var markdown string
 
 	pages, err := p.pdfBackend.ExtractText(ctx, filePath)
 	if err != nil {
@@ -522,19 +478,59 @@ func (p *Pipeline) processPdfFile(ctx context.Context, vaultPath string, filePat
 		return nil, nil
 	}
 	slog.Debug("sending PDF to LLM for markdown conversion", "file", relPath, "pages", len(pages))
-	markdown, err = p.llmConverter.Convert(ctx, pages)
+	markdown, err := p.llmConverter.Convert(ctx, pages)
 	if err != nil {
 		slog.Warn("LLM conversion failed, skipping PDF", "file", relPath, "err", err)
 		p.recordFailedFile(relPath, fmt.Sprintf("LLM conversion failed: %v", err))
 		return nil, nil
 	}
 
-	astRes := parser.Parse(markdown, slug, p.ChunkSize, p.ChunkOverlap, p.SkipAttachments)
-
 	// Empty LLM output is usually a transient conversion failure. Preserve the
 	// previously indexed PDF instead of deleting it from the index; an empty
 	// batch would remove its chunks permanently (see buildChunkRecords).
-	records, err := p.buildChunkRecords(ctx, &astRes, slug, title, relPath, hash, fileTypePDF)
+	return p.buildIngestData(ctx, relPath, slug, title, hash, fileTypePDF, markdown, false)
+}
+
+// noteIdentity reads, identifies, and hashes a note file. changed=false means
+// the note is already indexed with identical content, so the caller skips it
+// without reading further or re-embedding.
+func (p *Pipeline) noteIdentity(vaultPath, filePath string, knownHashes map[string]string) (relPath, slug, title string, content []byte, hash string, changed bool, err error) {
+	relPath, err = filepath.Rel(vaultPath, filePath)
+	if err != nil {
+		return "", "", "", nil, "", false, err
+	}
+
+	content, err = os.ReadFile(filePath)
+	if err != nil {
+		return "", "", "", nil, "", false, err
+	}
+
+	slug = parser.Slugify(relPath)
+	hash = fileHash(content, p.ChunkSize, p.ChunkOverlap, p.embedder.Model())
+	if knownHashes[slug] == hash {
+		return "", "", "", nil, "", false, nil // Skip unchanged
+	}
+
+	return relPath, slug, parser.TitleFromPath(relPath), content, hash, true, nil
+}
+
+// buildIngestData parses markdown and assembles batch data for an identified
+// note. Returns nil when no chunk survives filtering: the caller must skip the
+// note entirely, since replacing it with an empty batch would delete its
+// previously indexed chunks, and because the content hash is unchanged that
+// deletion would be permanent (later ingests would skip the file as
+// unmodified). When frontmatterTitle is true, a frontmatter "title" overrides
+// the filename-derived title.
+func (p *Pipeline) buildIngestData(ctx context.Context, relPath, slug, title, hash, fileType, markdown string, frontmatterTitle bool) (*store.BatchIngestData, error) {
+	astRes := parser.Parse(markdown, slug, p.ChunkSize, p.ChunkOverlap, p.SkipAttachments)
+
+	if frontmatterTitle {
+		if ft, ok := astRes.Frontmatter["title"].(string); ok && ft != "" {
+			title = ft
+		}
+	}
+
+	records, err := p.buildChunkRecords(ctx, &astRes, slug, title, relPath, hash, fileType)
 	if err != nil {
 		return nil, err
 	}
