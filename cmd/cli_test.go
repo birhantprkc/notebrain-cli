@@ -12,32 +12,6 @@ import (
 	"testing"
 )
 
-func TestSetupLogger(t *testing.T) {
-	tests := []struct {
-		name     string
-		logLevel string
-		debug    bool
-	}{
-		{"default info", "info", false},
-		{"explicit debug", "debug", false},
-		{"explicit warn", "warn", false},
-		{"explicit error", "error", false},
-		{"legacy debug flag overrides info", "info", true},
-		{"legacy debug flag overrides warn", "warn", true},
-		{"unknown level defaults to info", "unknown", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			setupLogger(tt.logLevel, tt.debug)
-
-			if slog.Default() == nil {
-				t.Fatal("expected slog.Default() to be initialized")
-			}
-		})
-	}
-}
-
 func TestResolveLogLevel(t *testing.T) {
 	tests := []struct {
 		name      string

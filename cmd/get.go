@@ -59,11 +59,7 @@ func (c *GetCmd) Run(globals *Globals) error {
 			fmt.Println(metaStyle.Render("Path:   " + note.FilePath))
 		}
 		if len(note.Tags) > 0 {
-			chips := make([]string, 0, len(note.Tags))
-			for _, t := range note.Tags {
-				chips = append(chips, "#"+t)
-			}
-			fmt.Println(metaStyle.Render("Tags:   " + strings.Join(chips, " ")))
+			fmt.Println(metaStyle.Render("Tags:   " + strings.Join(formatTagChips(note.Tags), " ")))
 		}
 		fmt.Println(metaStyle.Render(fmt.Sprintf("Chunks: %d", note.Chunks)))
 		fmt.Println("\n" + note.Text + "\n")

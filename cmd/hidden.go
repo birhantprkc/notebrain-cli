@@ -70,8 +70,8 @@ func (c *HiddenCmd) Run(globals *Globals) error {
 		if err != nil {
 			return err
 		}
-		if err = st.PopulateContext(ctx, results, c.ContextWindow); err != nil {
-			return fmt.Errorf("populate context: %w", err)
+		if err = populateContext(ctx, st, results, c.ContextWindow); err != nil {
+			return err
 		}
 		cmdName := "hidden --deep"
 		title := fmt.Sprintf("Deep chunk-by-chunk hidden connections for: %q (slug: %s) [%d target chunks analyzed]", targetNote, targetSlug, len(seedChunks))
@@ -98,8 +98,8 @@ func (c *HiddenCmd) Run(globals *Globals) error {
 	if err != nil {
 		return err
 	}
-	if err := st.PopulateContext(ctx, results, c.ContextWindow); err != nil {
-		return fmt.Errorf("populate context: %w", err)
+	if err := populateContext(ctx, st, results, c.ContextWindow); err != nil {
+		return err
 	}
 
 	cmdName := "hidden"

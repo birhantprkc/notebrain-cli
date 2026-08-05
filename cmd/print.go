@@ -212,7 +212,7 @@ func printTextResults(w io.Writer, commandName, query string, queries []string, 
 		return
 	}
 
-	useLinks := hyperlinkSupported(globals) && globals.ShowFilePath
+	useLinks := hyperlinkSupported() && globals.ShowFilePath
 
 	noteCounts := make(map[string]int, len(filtered))
 	for _, r := range filtered {
@@ -243,7 +243,7 @@ func printTextResults(w io.Writer, commandName, query string, queries []string, 
 		title := paddedTitle
 
 		if useLinks && r.FilePath != "" {
-			uri := store.ObsidianURI(globals.VaultName, r.FilePath)
+			uri := ObsidianURI(globals.VaultName, r.FilePath)
 			title = hyperlink(true, uri, paddedTitle)
 		}
 
@@ -271,11 +271,7 @@ func printTextResults(w io.Writer, commandName, query string, queries []string, 
 		}
 
 		if len(r.Tags) > 0 {
-			formattedTags := make([]string, 0, len(r.Tags))
-			for _, t := range r.Tags {
-				formattedTags = append(formattedTags, "#"+t)
-			}
-			line += "  " + extraStyle.Render("["+strings.Join(formattedTags, " ")+"]")
+			line += "  " + extraStyle.Render("["+strings.Join(formatTagChips(r.Tags), " ")+"]")
 		}
 		if len(r.MatchedQueries) > 0 && len(queries) > 1 {
 			line += "  " + extraStyle.Render(`[hits: "`+strings.Join(r.MatchedQueries, `", "`)+`"]`)
@@ -301,11 +297,7 @@ func printDeepDetails(w io.Writer, r store.Result, termWidth int, _ *Globals) {
 		details = append(details, fmt.Sprintf("Matched target sections (%d): %s", len(r.MatchedQueries), extraStyle.Render(`"`+strings.Join(r.MatchedQueries, `", "`)+`"`)))
 	}
 	if len(r.Tags) > 0 {
-		formattedTags := make([]string, 0, len(r.Tags))
-		for _, t := range r.Tags {
-			formattedTags = append(formattedTags, "#"+t)
-		}
-		details = append(details, fmt.Sprintf("Tags: %s", extraStyle.Render(strings.Join(formattedTags, " "))))
+		details = append(details, fmt.Sprintf("Tags: %s", extraStyle.Render(strings.Join(formatTagChips(r.Tags), " "))))
 	}
 
 	maxLineLen := termWidth

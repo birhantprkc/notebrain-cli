@@ -1,4 +1,4 @@
-package store
+package cmd
 
 import (
 	"net/url"

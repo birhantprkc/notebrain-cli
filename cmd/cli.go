@@ -349,12 +349,6 @@ func colorAllowed() bool {
 	return stderrIsTTY() && os.Getenv("NO_COLOR") == ""
 }
 
-// setupLogger configures the default slog logger for stderr.
-func setupLogger(logLevel string, debug bool) {
-	level := resolveLogLevel(logLevel, debug)
-	slog.SetDefault(slog.New(buildHandler(level, os.Stderr, stderrIsTTY(), colorAllowed())))
-}
-
 // setupLogging configures slog for stderr and, when logFile is set, adds a
 // rotating JSON file sink that receives the same events (tee). The returned
 // writer must be closed by the caller.
@@ -387,7 +381,7 @@ func resolveLogFile(logFile string) string {
 
 // hyperlinkSupported returns true if the terminal supports OSC 8 hyperlinks
 // and the user has not disabled them.
-func hyperlinkSupported(_ *Globals) bool {
+func hyperlinkSupported() bool {
 	if os.Getenv("NO_HYPERLINKS") != "" {
 		return false
 	}

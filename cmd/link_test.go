@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"testing"
-
-	"github.com/nmdra/notebrain-cli/v2/internal/store"
 )
 
 func TestObsidianURI(t *testing.T) {
@@ -19,7 +17,7 @@ func TestObsidianURI(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		actual := store.ObsidianURI(tt.vault, tt.filePath)
+		actual := ObsidianURI(tt.vault, tt.filePath)
 		if actual != tt.expected {
 			t.Errorf("ObsidianURI(%q, %q) = %q, expected %q", tt.vault, tt.filePath, actual, tt.expected)
 		}

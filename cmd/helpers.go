@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/nmdra/notebrain-cli/v2/internal/store"
@@ -46,4 +47,23 @@ var openStore = func(ctx context.Context, globals *Globals) (storeAPI, error) {
 // formatTags joins tags as a comma-separated string.
 func formatTags(tags []string) string {
 	return strings.Join(tags, ",")
+}
+
+// formatTagChips renders tags as "#tag" chips for display.
+func formatTagChips(tags []string) []string {
+	chips := make([]string, 0, len(tags))
+	for _, t := range tags {
+		chips = append(chips, "#"+t)
+	}
+	return chips
+}
+
+// populateContext attaches surrounding-chunk context to results, wrapping
+// store errors with the shared "populate context" prefix so every command
+// reports context failures consistently.
+func populateContext(ctx context.Context, st storeAPI, results []store.Result, windowSize int) error {
+	if err := st.PopulateContext(ctx, results, windowSize); err != nil {
+		return fmt.Errorf("populate context: %w", err)
+	}
+	return nil
 }

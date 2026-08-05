@@ -61,8 +61,8 @@ func (c *TagsCmd) Run(globals *Globals) error {
 		if c.Limit > 0 && len(nodes) > c.Limit {
 			nodes = nodes[:c.Limit]
 		}
-		if err = st.PopulateContext(ctx, nodes, c.ContextWindow); err != nil {
-			return fmt.Errorf("populate context: %w", err)
+		if err = populateContext(ctx, st, nodes, c.ContextWindow); err != nil {
+			return err
 		}
 
 		return printResultsFormatted("tags --shared", fmt.Sprintf("Notes sharing tags with: %q (slug: %s) [Min Shared: %d]", c.Query, targetSlug, c.MinShared), targetSlug, nil, nodes, globals, &c.ChunkDisplayFlags)
@@ -74,8 +74,8 @@ func (c *TagsCmd) Run(globals *Globals) error {
 	if err != nil {
 		return err
 	}
-	if err := st.PopulateContext(ctx, nodes, c.ContextWindow); err != nil {
-		return fmt.Errorf("populate context: %w", err)
+	if err := populateContext(ctx, st, nodes, c.ContextWindow); err != nil {
+		return err
 	}
 
 	commandName := "tags"

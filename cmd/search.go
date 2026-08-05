@@ -187,8 +187,8 @@ func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st storeAPI
 		if err != nil {
 			return err
 		}
-		if err := st.PopulateContext(ctx, results, c.ContextWindow); err != nil {
-			return fmt.Errorf("populate context: %w", err)
+		if err := populateContext(ctx, st, results, c.ContextWindow); err != nil {
+			return err
 		}
 		return printResultsFormatted("search", fmt.Sprintf("Tag Search: %q%s", c.Tag, excludeSuffix), c.Tag, displayQueries, results, globals, &c.ChunkDisplayFlags)
 	}
@@ -202,8 +202,8 @@ func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st storeAPI
 		if err != nil {
 			return err
 		}
-		if err := st.PopulateContext(ctx, results, c.ContextWindow); err != nil {
-			return fmt.Errorf("populate context: %w", err)
+		if err := populateContext(ctx, st, results, c.ContextWindow); err != nil {
+			return err
 		}
 
 		header := fmt.Sprintf("Multi-Hit Semantic Search: %q", strings.Join(resolved, ", "))
@@ -222,8 +222,8 @@ func (c *SearchCmd) runStatic(ctx context.Context, globals *Globals, st storeAPI
 	if err != nil {
 		return err
 	}
-	if err := st.PopulateContext(ctx, results, c.ContextWindow); err != nil {
-		return fmt.Errorf("populate context: %w", err)
+	if err := populateContext(ctx, st, results, c.ContextWindow); err != nil {
+		return err
 	}
 
 	return printResultsFormatted("search", fmt.Sprintf("Semantic Search: %q%s", resolved[0], excludeSuffix), resolved[0], displayQueries, results, globals, &c.ChunkDisplayFlags)
