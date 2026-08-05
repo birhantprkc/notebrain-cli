@@ -21,6 +21,11 @@ type existingConfig struct {
 func (c *InitCmd) Run(globals *Globals) error {
 	initStyles()
 
+	// One reader shared by every prompt: a fresh bufio.Reader per prompt
+	// would over-read the pipe and discard buffered input, breaking piped
+	// answers like `yes | notebrain init`.
+	reader := bufio.NewReader(os.Stdin)
+
 	fmt.Println(headerStyle.Render("NoteBrain CLI Initialization"))
 	fmt.Println("This wizard will help you create a configuration file at ~/.notebrain/config/config.toml")
 	fmt.Println()
@@ -42,7 +47,7 @@ func (c *InitCmd) Run(globals *Globals) error {
 
 	if _, err := os.Stat(configPath); err == nil {
 		printWarning("Config Exists", fmt.Sprintf("A configuration file already exists at %s", configPath))
-		if !askYesNo("Do you want to overwrite it?", false) {
+		if !askYesNo(reader, "Do you want to overwrite it?", false) {
 			fmt.Println("Initialization aborted.")
 			return nil
 		}
@@ -53,7 +58,7 @@ func (c *InitCmd) Run(globals *Globals) error {
 	if defaultVault == "" {
 		defaultVault = filepath.Join(home, "Documents", "Obsidian")
 	}
-	vaultPath := askString("Where is your Obsidian Vault located?", defaultVault)
+	vaultPath := askString(reader, "Where is your Obsidian Vault located?", defaultVault)
 
 	// Expand tilde if user typed it
 	if strings.HasPrefix(vaultPath, "~/") {
@@ -67,12 +72,12 @@ func (c *InitCmd) Run(globals *Globals) error {
 	}
 
 	// Ask for PDF support
-	enablePDF := askYesNo("Enable text extraction for PDF attachments?", existing.EnablePDF)
+	enablePDF := askYesNo(reader, "Enable text extraction for PDF attachments?", existing.EnablePDF)
 
 	// Preview the changes before writing anything.
 	fmt.Println()
 	printWarning("Ready to write", fmt.Sprintf("vault-path = %q\nenable-pdf  = %t", vaultPath, enablePDF))
-	if !askYesNo(fmt.Sprintf("Write configuration to %s?", configPath), true) {
+	if !askYesNo(reader, fmt.Sprintf("Write configuration to %s?", configPath), true) {
 		fmt.Println("Initialization aborted.")
 		return nil
 	}
@@ -106,8 +111,7 @@ func (c *InitCmd) Run(globals *Globals) error {
 	return nil
 }
 
-func askString(prompt, defaultValue string) string {
-	reader := bufio.NewReader(os.Stdin)
+func askString(reader *bufio.Reader, prompt, defaultValue string) string {
 	fmt.Printf("%s [%s]: ", prompt, defaultValue)
 
 	input, _ := reader.ReadString('\n')
@@ -119,8 +123,7 @@ func askString(prompt, defaultValue string) string {
 	return input
 }
 
-func askYesNo(prompt string, defaultYes bool) bool {
-	reader := bufio.NewReader(os.Stdin)
+func askYesNo(reader *bufio.Reader, prompt string, defaultYes bool) bool {
 	options := "[y/N]"
 	if defaultYes {
 		options = "[Y/n]"

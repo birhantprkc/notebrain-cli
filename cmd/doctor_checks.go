@@ -126,6 +126,10 @@ func probeStoreOpen(chromaPath string) probeResult {
 	return probeStoreOpenExec(chromaPath, exe)
 }
 
+// probeStoreOpenFn is indirection over probeStoreOpen so doctor tests can
+// stub the subprocess probe.
+var probeStoreOpenFn = probeStoreOpen
+
 func probeStoreOpenExec(chromaPath, exe string) probeResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()

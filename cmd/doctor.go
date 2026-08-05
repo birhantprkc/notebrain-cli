@@ -79,7 +79,7 @@ func (c *DoctorCmd) Run(globals *Globals) error {
 	// 5. Open test: the definitive check. A corrupted HNSW index aborts the
 	// probe subprocess with a signal instead of returning a Go error.
 	if sqliteExists || segments > 0 {
-		res := probeStoreOpen(chromaPath)
+		res := probeStoreOpenFn(chromaPath)
 		if res.ok {
 			printSuccess("ChromaDB open test", res.detail)
 		} else {
