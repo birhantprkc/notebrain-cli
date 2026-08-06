@@ -197,6 +197,7 @@ To uninstall NoteBrain, remove the `notebrain` binary and delete the `~/.notebra
 | [Shell Completion](wiki/Shell_Completion.md)               | Tab completion setup for bash, zsh, and fish                             |
 | [AI Agent Skill Usage](wiki/Skill_Usage.md)                | Instructions for the built-in AI agent skill                             |
 | [OpenCode Agent Integration](wiki/OpenCode_Integration.md) | Configuration for NoteBrain as an OpenCode AI coding assistant           |
+| [Pi Agent Integration](wiki/Pi_Agent_Integration.md)       | Run the Pi agent in a notebrain-only mode against the vault              |
 | [DeepWiki](https://deepwiki.com/nmdra/notebrain-cli)       | AI-generated codebase documentation                                      |
 
 ## Contributing
